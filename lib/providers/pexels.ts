@@ -35,7 +35,7 @@ export async function getNaturePhotos(): Promise<NaturePhotosResponse> {
   if (Date.now() < retryAfter) return fallback();
   pending = (async () => {
     try {
-      const photos = await cached("pexels-nature", { version: 1 }, async () => {
+      const photos = await cached("pexels-nature", { version: 2 }, async () => {
         const page = 1 + Math.floor(Date.now() / 86400000) % 10;
         const batches = await Promise.all(["plants", "forest landscape"].map(async (term) => {
           const params = new URLSearchParams({ query: term, orientation: "landscape", per_page: "40", page: String(page), locale: "pt-BR" });
@@ -46,10 +46,10 @@ export async function getNaturePhotos(): Promise<NaturePhotosResponse> {
           if (!response.ok) throw new Error("Pexels indisponível.");
           const raw = z.object({ photos: z.array(z.object({
             id: z.number(), url: z.string(), photographer: z.string(),
-            alt: z.string().optional(), src: z.object({ landscape: z.string() }),
+            alt: z.string().optional(), src: z.object({ original: pexelsUrl("images.pexels.com") }),
           })).max(80) }).parse(redactProviderSecrets(await response.json()));
           return raw.photos.flatMap((photo) => {
-            const parsed = photoSchema.safeParse({ id: photo.id, url: photo.url, image: photo.src.landscape,
+            const parsed = photoSchema.safeParse({ id: photo.id, url: photo.url, image: `${photo.src.original.split("?")[0]}?auto=compress&w=1600`,
               alt: photo.alt || "Fotografia de natureza", photographer: photo.photographer });
             return parsed.success ? [parsed.data] : [];
           });

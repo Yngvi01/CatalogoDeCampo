@@ -21,8 +21,8 @@ test("Pexels: cache compartilhado, URLs seguras e fallback sem novas consultas",
       calls++;
       assert.equal(new Headers(options?.headers).get("Authorization"), "test-pexels-secret");
       return Response.json({ photos: [
-        { id: 1, url: "https://www.pexels.com/photo/1/", photographer: "Photographer", alt: "Forest", src: { landscape: "https://images.pexels.com/photos/1/test.jpg" } },
-        { id: 2, url: "javascript:alert(1)", photographer: "Unsafe", src: { landscape: "https://untrusted.example/photo.jpg" } },
+        { id: 1, url: "https://www.pexels.com/photo/1/", photographer: "Photographer", alt: "Forest", src: { original: "https://images.pexels.com/photos/1/test.jpg" } },
+        { id: 2, url: "javascript:alert(1)", photographer: "Unsafe", src: { original: "https://images.pexels.com/photos/2/test.jpg" } },
       ] });
     };
     const [first, parallel] = await Promise.all([getNaturePhotos(), getNaturePhotos()]);

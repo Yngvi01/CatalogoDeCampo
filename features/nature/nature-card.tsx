@@ -1,11 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Leaf, Shuffle } from "lucide-react";
+import { Leaf, Shuffle, Maximize2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Modal } from "@/components/shared";
 import type { NaturePhoto, NaturePhotosResponse } from "./types";
 
 export function NatureCard() {
+  const [expanded, setExpanded] = useState(false);
   const [photos, setPhotos] = useState<NaturePhoto[]>([]);
   const [index, setIndex] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -40,11 +42,19 @@ export function NatureCard() {
       {photo ? (
         <figure>
           <div className="nature-image">
-            {!failed ? <img key={photo.id} src={photo.image} alt={photo.alt} width={1200} height={627} loading="lazy" decoding="async" onError={() => setFailed(true)} /> : <p role="status">Esta foto não carregou. Experimente outra paisagem.</p>}
+            {!failed ? <button className="nature-preview" aria-label="Ampliar foto de natureza" onClick={() => setExpanded(true)}><img key={photo.id} src={photo.image} alt={photo.alt} width={1200} height={627} loading="lazy" decoding="async" onError={() => setFailed(true)} /><span className="nature-expand"><Maximize2 size={14} /> Ampliar foto</span></button> : <p role="status">Esta foto não carregou. Experimente outra paisagem.</p>}
           </div>
           <figcaption>Foto de <a href={photo.url} target="_blank" rel="noreferrer">{photo.photographer}</a> · <a href="https://www.pexels.com" target="_blank" rel="noreferrer">Fotos fornecidas pelo Pexels ↗</a></figcaption>
         </figure>
       ) : <div className="nature-empty" role="status">{loading ? "Abrindo uma janela para a natureza…" : <>As paisagens estão indisponíveis no momento. <button className="text-button" onClick={() => setRevision(value => value + 1)}>Tentar novamente</button></>}</div>}
+      {expanded && photo && (
+        <Modal title="Janela para a natureza" onClose={() => setExpanded(false)} wide>
+          <figure className="nature-lightbox">
+            <img src={photo.image} alt={photo.alt} />
+            <figcaption>Foto de <a href={photo.url} target="_blank" rel="noreferrer">{photo.photographer}</a> · <a href="https://www.pexels.com" target="_blank" rel="noreferrer">Pexels ↗</a></figcaption>
+          </figure>
+        </Modal>
+      )}
     </section>
   );
 }
