@@ -1012,8 +1012,10 @@ small {
 .catalog-examples-heading { display: flex; justify-content: space-between; align-items: end; gap: 16px; margin-bottom: 14px; }
 .catalog-examples-heading h3 { font: 23px Georgia, serif; margin: 5px 0 7px; }
 .catalog-examples-heading p, .catalog-examples-credit { color: var(--muted); font-size: 11px; line-height: 1.5; margin: 0; }
-.catalog-examples .organism-card { cursor: default; }
 .catalog-examples-credit { margin-top: 10px; }
+.catalog-example-disclaimer { margin: 0 0 15px; color: var(--muted); font-size: 12px; line-height: 1.6; }
+.catalog-example-tabs { margin-bottom: 18px; }
+.catalog-example-detail .detail-photo + a { display: inline-flex; margin-top: 10px; }
 @media (min-width: 1250px) { .catalog-examples .cards:not(.list-view) { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
 @media (max-width: 600px) { .catalog-examples-heading { align-items: flex-start; flex-direction: column; } }
 .photo-previews {

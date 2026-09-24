@@ -316,12 +316,38 @@ test("guia de fotos e comparação preservam seleção e não salvam a consulta"
   await expect(page.getByRole("region", { name: "Exemplos visuais de cards do catálogo" })).toHaveCount(0);
   await page.getByRole("button", { name: "Catálogo", exact: true }).click();
   const examples = page.getByRole("region", { name: "Exemplos visuais de cards do catálogo" });
-  await expect(examples.getByRole("article")).toHaveCount(4);
+  await expect(examples.getByRole("button", { name: /Abrir identificação de exemplo:/ })).toHaveCount(4);
   for (const name of ["Ipomoea violacea", "Casearia sylvestris", "Mimosa scabrella", "Amanita muscaria"])
-    await expect(examples.getByRole("heading", { name })).toBeVisible();
+    await expect(examples.getByRole("button", { name: `Abrir identificação de exemplo: ${name}` })).toBeVisible();
   await examples.locator("img").first().scrollIntoViewIfNeeded();
   await expect.poll(() => examples.locator("img").first().evaluate(image => (image as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
   const before = await (await page.request.get("/api/catalog")).json();
+  await examples.getByRole("button", { name: "Abrir identificação de exemplo: Mimosa scabrella" }).click();
+  const exampleDetail = page.getByRole("dialog", { name: "Mimosa scabrella" });
+  await expect(exampleDetail.getByText("IDENTIFICAÇÃO DE EXEMPLO")).toBeVisible();
+  await expect(exampleDetail.locator(".detail-photo img")).toBeVisible();
+  await exampleDetail.getByRole("button", { name: "Ver ficha da espécie" }).click();
+  await expect(exampleDetail.getByText(/N,N-dimetiltriptamina/)).toBeVisible();
+  await exampleDetail.getByRole("button", { name: "Identificação", exact: true }).click();
+  await expect(exampleDetail.getByText("IDENTIFICAÇÃO DE EXEMPLO")).toBeVisible();
+  await exampleDetail.getByRole("button", { name: "Fechar" }).click();
+  for (const name of ["Ipomoea violacea", "Casearia sylvestris", "Amanita muscaria"]) {
+    await examples.getByRole("button", { name: `Abrir identificação de exemplo: ${name}` }).click();
+    const detail = page.getByRole("dialog", { name });
+    await expect(detail.locator(".detail-photo img")).toBeVisible();
+    await detail.getByRole("button", { name: "Ficha da espécie", exact: true }).click();
+    await expect(detail.getByRole("link", { name: /et al\./ })).toBeVisible();
+    await detail.getByRole("button", { name: "Fechar" }).click();
+  }
+  await page.setViewportSize({ width: 390, height: 844 });
+  await examples.getByRole("button", { name: "Abrir identificação de exemplo: Amanita muscaria" }).click();
+  const mobileExample = page.getByRole("dialog", { name: "Amanita muscaria" });
+  expect(await mobileExample.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
+  await mobileExample.getByRole("button", { name: "Fechar" }).click();
+  await page.setViewportSize({ width: 1280, height: 800 });
+  const afterExample = await (await page.request.get("/api/catalog")).json();
+  expect(afterExample.observations.length).toBe(before.observations.length);
+  expect(afterExample.species.length).toBe(before.species.length);
   await page.getByRole("button", { name: "Identificar", exact: true }).click();
   await page.getByRole("button", { name: "Nova observação", exact: true }).click();
   const dialog = page.getByRole("dialog");
