@@ -46,6 +46,7 @@ import {
   previewImport,
   importCatalog,
 } from "@/features/backup/service";
+import { getNaturePhotos } from "@/lib/providers/pexels";
 import { getReflections } from "@/lib/providers/zenquotes";
 import {
   createNote,
@@ -136,6 +137,7 @@ export async function GET(request: NextRequest, ctx: Context) {
       await cleanupDeletedPhotos();
       return json(await catalog());
     }
+    if (area === "nature-photos") return json(await getNaturePhotos());
     if (area === "reflections") return json(await getReflections());
     if (area === "observations" && id) return json(await observationDetail(id));
     if (area === "images" && id) {

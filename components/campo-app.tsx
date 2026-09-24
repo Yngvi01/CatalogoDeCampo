@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Botanical } from "./botanical";
+import { NatureCard } from "@/features/nature/nature-card";
 import { ReflectionCard } from "@/features/reflections/reflection-card";
 import { Empty, Loading, api } from "./shared";
 import { NewObservation } from "@/features/observations/new-observation";
@@ -358,6 +359,7 @@ export function CampoApp() {
                     <Botanical />
                   </section>
                   <ReflectionCard />
+                  <NatureCard />
                   <div className="stats-grid">
                     {[
                       {

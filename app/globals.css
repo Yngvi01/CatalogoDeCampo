@@ -2684,3 +2684,20 @@ details > summary {
 .photo-choice > span { display: flex; align-items: center; gap: 6px; font-size: 12px; }
 .photo-choice input[type="checkbox"] { width: 16px; height: 16px; margin: 0; }
 .photo-choice:has(input:checked) img { outline: 2px solid var(--primary, #a6bd80); outline-offset: 2px; }
+
+.nature-card { margin: 0 0 26px; overflow: hidden; }
+.nature-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 22px 24px; }
+.nature-heading .eyebrow { display: flex; align-items: center; gap: 7px; }
+.nature-heading h2 { margin: 7px 0 0; font-family: var(--font-serif), Georgia, serif; font-size: 25px; font-weight: 400; }
+.nature-card figure { margin: 0; }
+.nature-image { aspect-ratio: 2.4; background: #1b2920; display: grid; place-items: center; overflow: hidden; }
+.nature-image img { width: 100%; height: 100%; object-fit: cover; min-height: 0; }
+.nature-image p, .nature-empty { padding: 28px; color: var(--muted); text-align: center; }
+.nature-card figcaption { padding: 13px 24px; font-size: 11px; color: var(--muted); }
+.nature-card figcaption a { text-decoration: underline; text-underline-offset: 3px; }
+@media (max-width: 600px) {
+  .nature-heading { align-items: flex-start; flex-direction: column; padding: 18px; }
+  .nature-heading h2 { font-size: 23px; }
+  .nature-image { aspect-ratio: 1.4; }
+  .nature-card figcaption { padding: 13px 18px; line-height: 1.8; }
+}

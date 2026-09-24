@@ -215,3 +215,9 @@ O resultado assinado expira em uma hora. Ao salvar, apenas as fotos selecionadas
 Abra a observação, clique em **Excluir identificação** e confirme **Excluir definitivamente**. A exclusão remove a observação, consultas, histórico e fotos vinculadas. A ficha da espécie, suas pesquisas/evidências e outras observações são preservadas. Arquivos compartilhados por outro registro não são apagados. Backups já exportados não são alterados.
 
 O banco registra a limpeza de arquivos antes de remover o registro. Se o disco ou Storage estiver indisponível, a interface informa a pendência e tenta novamente ao carregar o catálogo. Nenhum registro é excluído apenas ao abrir ou cancelar a confirmação.
+
+### Fotos de natureza (Pexels)
+
+A tela inicial inclui **Janela para a natureza**, com fotos aleatórias de plantas e florestas e o botão **Ver outra paisagem**. Configure `PEXELS_API_KEY` somente no servidor (na Vercel, em Production e Preview). A chave gratuita é obtida em https://www.pexels.com/api/.
+
+O servidor busca até 80 fotos e guarda apenas URLs e créditos no cache por 24 horas. As imagens carregam diretamente do Pexels, sem entrar no catálogo ou no bucket. O sorteio ocorre no navegador, sem nova consulta ao provedor por clique. Em caso de falha, o último lote em cache continua disponível; sem cache, o cartão informa a indisponibilidade. Os créditos do fotógrafo e do Pexels acompanham cada imagem. As frases continuam independentes.

@@ -53,6 +53,7 @@ export function redactProviderSecrets(value: unknown): unknown {
     let text = value;
     for (const key of [
       process.env.PLANTNET_API_KEY,
+      process.env.PEXELS_API_KEY,
       process.env.SPECIESLINK_API_KEY,
       process.env.CAMPO_PASSWORD,
     ])
