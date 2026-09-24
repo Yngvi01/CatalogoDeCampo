@@ -47,7 +47,7 @@ O modo `CAMPO_STORAGE=supabase` usa PostgreSQL e um bucket privado no Supabase, 
 3. Na Vercel configure `CAMPO_STORAGE=supabase`, `DATABASE_URL` (Transaction pooler, porta 6543), `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_STORAGE_BUCKET=campo-private` e `CAMPO_PASSWORD`. Preserve as chaves opcionais dos provedores.
 4. Faça um novo deploy. Nunca use prefixo `NEXT_PUBLIC_` nas credenciais. A senha é obrigatória no modo hospedado.
 
-Fotos são enviadas diretamente ao bucket por links temporários, e o servidor valida tamanho, formato e conteúdo antes de salvar a observação. Downloads usam links de cinco minutos. JSON, CSV e ZIP também passam pelo Storage para evitar o limite de resposta da Vercel. Na nuvem, cada foto pode ter até 20 MB, o conjunto até 100 MB e a importação/arquivo de backup até 50 MB. Localmente, a importação continua aceitando até 256 MB. ZIPs da nuvem contêm JSON, fotos e checksums; o arquivo SQLite só é incluído em backups locais. Ambos são importáveis nos dois modos.
+Somente as fotos escolhidas após a identificação são enviadas ao bucket por links temporários, e o servidor valida tamanho, formato e conteúdo antes de salvar a observação. Downloads usam links de cinco minutos. JSON, CSV e ZIP também passam pelo Storage para evitar o limite de resposta da Vercel. Na nuvem, cada foto pode ter até 20 MB, o conjunto até 100 MB e a importação/arquivo de backup até 50 MB. Localmente, a importação continua aceitando até 256 MB. ZIPs da nuvem contêm JSON, fotos e checksums; o arquivo SQLite só é incluído em backups locais. Ambos são importáveis nos dois modos.
 
 Antes de atualizar ou restaurar dados por importação, o sistema preserva um ZIP em `backups/` no bucket (ou `data/backups` no modo local). Os dados locais não são enviados automaticamente: use o ZIP para transferir o catálogo. Nenhuma migration SQLite deve ser executada no Supabase.
 
@@ -70,7 +70,7 @@ Chaves, `.env` e senha não são exportados. Não use prefixo `NEXT_PUBLIC_` par
 
 ## Fluxo principal
 
-- **Identificar:** crie uma observação com uma ou mais fotos. Data e hora são automáticas; localização, ambiente e notas são opcionais.
+- **Identificar:** selecione até cinco fotos e consulte primeiro. As cópias reduzidas passam apenas pela memória do servidor até o provedor; nada é salvo no catálogo ou no Storage durante essa consulta. Depois do resultado, escolha quais originais guardar ou salve a observação sem fotos. Nenhuma imagem vem pré-selecionada; descartar a consulta não cria registros.
 - Consulte Pl@ntNet para plantas ou os candidatos contextuais para fungos. A observação pode continuar pendente.
 - Compare fontes e registre uma identificação provável, identificada pelo usuário ou confirmada externamente. A última opção exige uma justificativa/fonte.
 - **Catálogo:** acompanhe a ficha da espécie e seus diferentes encontros. Registre dados pessoais e evidências, com origem e tipo claramente separados.
@@ -203,3 +203,9 @@ O backup passou para o **formato 2** para incluir as páginas, inclusive arquiva
 Com variáveis de um projeto de teste configuradas, execute `CAMPO_SUPABASE_TEST=1 node --env-file=SEU_ARQUIVO_PRIVADO --import tsx --test tests/supabase.test.ts`. O teste verifica transações, conflitos, upload assinado, privacidade e backup; remove apenas os registros que criou. A suíte padrão não acessa Supabase.
 
 Uploads abandonados e cópias temporárias de exportação com mais de 24 horas são removidos em lotes nas próximas operações de upload/exportação. Fotos definitivas e backups de recuperação não são removidos por essa rotina.
+
+### Identificar antes de guardar fotos
+
+A consulta inicial usa JPEGs reduzidos no navegador (até 650 KB por foto), com remoção de EXIF também no servidor. Não cria observação, imagens, arquivos temporários no Storage nem cache visual. O Pl@ntNet recebe as cópias para análise; fungos usam assistência contextual, sem análise visual. Os originais permanecem no navegador até a escolha explícita de retenção. Fechar/descartar a consulta não salva nada.
+
+O resultado assinado expira em uma hora. Ao salvar, apenas as fotos selecionadas são transferidas e relacionadas ao registro; também é possível salvar os dados e candidatos com zero imagens. Se a consulta automática falhar, a tela mantém as fotos e permite repetir ou continuar explicitamente com identificação manual. Para este fluxo, use JPEG, PNG ou WebP que o navegador consiga abrir.

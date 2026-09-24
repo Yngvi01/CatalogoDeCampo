@@ -117,6 +117,11 @@ export function ObservationDetail({
           <div className="observation-layout">
             <div>
               <div className="detail-photo">
+                {!data.photos.length && (
+                  <p className="muted">
+                    Nenhuma foto foi guardada nesta observação.
+                  </p>
+                )}
                 {data.photos[photo] && (
                   <img
                     src={`/api/images/${data.photos[photo].id}?variant=optimized`}
@@ -319,7 +324,9 @@ export function ObservationDetail({
             </div>
             <Button
               size="sm"
-              disabled={!!busy}
+              disabled={
+                !!busy || (data.group === "plant" && !data.photos.length)
+              }
               onClick={() =>
                 void act("identify", () =>
                   api(`observations/${id}/identify`, send({})),

@@ -15,18 +15,26 @@ import {
   type Photo,
   type Species,
   type Identification,
+  type Candidate,
   statusSchema,
 } from "@/lib/validation/schemas";
 import { savePhoto, removePhoto } from "@/lib/storage/photos";
 import { z } from "zod";
-export async function createObservation(form: FormData) {
+export async function createObservation(
+  form: FormData,
+  identification?: {
+    candidates: Candidate[];
+    provider: string;
+    queriedAt: string;
+  },
+) {
   const input = observationInput.parse(
     JSON.parse(String(form.get("data") || "{}")),
   );
   const files = form
     .getAll("photos")
     .filter((f): f is File => f instanceof File && f.size > 0);
-  if (!files.length || files.length > 12)
+  if ((!files.length && !identification) || files.length > 12)
     throw new Error("Selecione entre 1 e 12 fotos.");
   if (files.reduce((n, f) => n + f.size, 0) > 100 * 1024 * 1024)
     throw new Error("O envio não pode superar 100 MB.");
@@ -47,11 +55,22 @@ export async function createObservation(form: FormData) {
         code: await nextCode(),
         observedAt: input.observedAt || new Date().toISOString(),
         createdAt: new Date().toISOString(),
-        status: "unidentified",
+        status: identification?.candidates.length
+          ? "candidates"
+          : "unidentified",
         speciesId: null,
       };
       await put("observations", o);
       for (const p of photos) await put("images", p);
+      if (identification && identification.provider !== "manual")
+        await put("identifications", {
+          id: randomUUID(),
+          observationId: id,
+          ...identification,
+          imageIds: photos.map((p) => p.id),
+          selectedName: null,
+          raw: { source: "preview", photoRetention: "user-selected" },
+        });
       return o;
     });
     return { observation, duplicates: duplicates.map((p) => p.id) };

@@ -2670,3 +2670,14 @@ details > summary {
     font-size: 16px;
   }
 }
+
+.photo-previews .photo-choice {
+  display: grid;
+  grid-template-rows: 120px auto;
+  gap: 8px;
+  width: 140px;
+  cursor: pointer;
+}
+.photo-choice > span { display: flex; align-items: center; gap: 6px; font-size: 12px; }
+.photo-choice input[type="checkbox"] { width: 16px; height: 16px; margin: 0; }
+.photo-choice:has(input:checked) img { outline: 2px solid var(--primary, #a6bd80); outline-offset: 2px; }

@@ -1,3 +1,8 @@
+import {
+  previewIdentification,
+  saveIdentifiedObservation,
+  readReceipt,
+} from "@/features/identification/preview";
 import { validToken, sameOrigin } from "@/lib/auth";
 import { limitedForm, limitedJson } from "@/lib/validation/body";
 import { NextRequest, NextResponse } from "next/server";
@@ -225,6 +230,46 @@ export async function POST(request: NextRequest, ctx: Context) {
     const length = Number(request.headers.get("content-length") || 0);
     if (length > 270 * 1024 * 1024)
       return json({ error: "Arquivo muito grande." }, 413);
+    if (area === "identification" && id === "preview")
+      return json(
+        await previewIdentification(await limitedForm(request, 3800000)),
+      );
+    if (area === "identification" && id === "save") {
+      if (!cloud) {
+        const form = await limitedForm(request, 101 * 1024 * 1024);
+        return json(
+          await saveIdentifiedObservation(
+            form,
+            String(form.get("receipt") || ""),
+          ),
+          201,
+        );
+      }
+      const input = z
+        .object({
+          receipt: z.string().max(500000),
+          uploads: z.array(z.string()).max(5),
+        })
+        .parse(await limitedJson(request));
+      readReceipt(input.receipt);
+      const form = new FormData();
+      try {
+        for (const ticket of input.uploads) {
+          const { bytes, payload } = await readUpload(ticket, "photo");
+          form.append(
+            "photos",
+            new File([new Uint8Array(bytes)], payload.name, {
+              type: payload.type,
+            }),
+          );
+        }
+        return json(await saveIdentifiedObservation(form, input.receipt), 201);
+      } finally {
+        await Promise.all(
+          input.uploads.map((t) => discardUpload(t, "photo").catch(() => {})),
+        );
+      }
+    }
     if (area === "uploads" && cloud)
       return json(await createUpload(await limitedJson(request)));
     if (area === "observations" && !id && cloud) {

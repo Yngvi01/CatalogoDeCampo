@@ -26,43 +26,57 @@ export const plantnet: IdentificationProvider = {
     return cached(
       "plantnet",
       photos.map((p) => ({ hash: p.hash, organ: p.organ })),
-      async () => {
-        const body = new FormData();
-        for (const p of photos.slice(0, 5)) {
-          body.append(
-            "images",
-            new Blob([new Uint8Array(await photoBytes(p))], {
-              type: "image/jpeg",
-            }),
-            `${p.id}.jpg`,
-          );
-          body.append("organs", p.organ || "auto");
-        }
-        const raw = await fetchJson<PlantResult>(
-          `https://my-api.plantnet.org/v2/identify/all?api-key=${encodeURIComponent(process.env.PLANTNET_API_KEY!)}&include-related-images=true&lang=pt`,
-          { method: "POST", body },
-        );
-        const candidates: Candidate[] = (raw.results || [])
-          .slice(0, 8)
-          .map((r) => ({
-            scientificName: r.species.scientificNameWithoutAuthor,
-            genus: r.species.genus?.scientificNameWithoutAuthor || "",
-            family: r.species.family?.scientificNameWithoutAuthor || "",
-            commonNames: r.species.commonNames || [],
-            score: r.score,
-            referenceImages: (r.images || [])
-              .filter((i) => i.url?.m)
-              .slice(0, 2)
-              .map((i) => ({
-                url: i.url!.m!,
-                author: i.author || "",
-                license: i.license || "",
-              })),
-          }));
-        return { candidates, raw, queriedAt: new Date().toISOString() };
-      },
+      async () =>
+        identifyPlantBytes(
+          await Promise.all(photos.slice(0, 5).map(photoBytes)),
+          photos.slice(0, 5).map((p) => p.organ),
+        ),
       refresh,
       30 * 86400000,
     );
   },
 };
+
+export async function identifyPlantBytes(
+  images: Uint8Array[],
+  organs: string[] = [],
+) {
+  if (!process.env.PLANTNET_API_KEY)
+    throw new Error(
+      "Pl@ntNet não configurado. Você pode continuar com identificação manual.",
+    );
+  if (!images.length || images.length > 5)
+    throw new Error("Envie entre 1 e 5 fotos para identificar.");
+
+  const body = new FormData();
+  for (const [index, bytes] of images.entries()) {
+    body.append(
+      "images",
+      new Blob([new Uint8Array(bytes)], {
+        type: "image/jpeg",
+      }),
+      `${index}.jpg`,
+    );
+    body.append("organs", organs[index] || "auto");
+  }
+  const raw = await fetchJson<PlantResult>(
+    `https://my-api.plantnet.org/v2/identify/all?api-key=${encodeURIComponent(process.env.PLANTNET_API_KEY!)}&include-related-images=true&lang=pt`,
+    { method: "POST", body },
+  );
+  const candidates: Candidate[] = (raw.results || []).slice(0, 8).map((r) => ({
+    scientificName: r.species.scientificNameWithoutAuthor,
+    genus: r.species.genus?.scientificNameWithoutAuthor || "",
+    family: r.species.family?.scientificNameWithoutAuthor || "",
+    commonNames: r.species.commonNames || [],
+    score: r.score,
+    referenceImages: (r.images || [])
+      .filter((i) => i.url?.m)
+      .slice(0, 2)
+      .map((i) => ({
+        url: i.url!.m!,
+        author: i.author || "",
+        license: i.license || "",
+      })),
+  }));
+  return { candidates, raw, queriedAt: new Date().toISOString() };
+}

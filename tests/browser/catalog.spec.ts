@@ -26,7 +26,17 @@ test("catálogo real: login, foto, confirmação, busca, evidência e backup", a
     .setInputFiles({ name: "folha.png", mimeType: "image/png", buffer: image });
   await dialog.getByLabel("Local / região").fill("São Paulo — teste de campo");
   await dialog
-    .getByRole("button", { name: "Salvar observação", exact: true })
+    .getByRole("button", { name: "Identificar fotos", exact: true })
+    .click();
+  await dialog
+    .getByRole("button", { name: "Continuar com identificação manual" })
+    .click();
+  await expect(
+    dialog.getByRole("checkbox", { name: "Guardar foto 1" }),
+  ).not.toBeChecked();
+  await dialog.getByRole("checkbox", { name: "Guardar foto 1" }).check();
+  await dialog
+    .getByRole("button", { name: "Salvar com 1 foto(s)", exact: true })
     .click();
   await expect(
     page.getByRole("heading", { name: "CAMPO-000001", exact: true }),
@@ -127,9 +137,7 @@ test("caderno: escrever, reler, buscar, editar, arquivar e recuperar páginas", 
     .fill(
       "O que muda quando observo com calma?\n\nUma anotação pessoal, sem conclusão definitiva.",
     );
-  await dialog
-    .getByLabel("Etiquetas")
-    .fill("filosofia, atenção");
+  await dialog.getByLabel("Etiquetas").fill("filosofia, atenção");
   await dialog
     .getByRole("button", { name: "Salvar página", exact: true })
     .click();
@@ -216,4 +224,35 @@ test("caderno: escrever, reler, buscar, editar, arquivar e recuperar páginas", 
   );
   await dialog.getByRole("button", { name: "Cancelar", exact: true }).click();
   expect(errors).toEqual([]);
+});
+
+test("identificação consulta antes de salvar e permite guardar a observação sem fotos", async ({ page }) => {
+  await page.goto("/");
+  await page.getByLabel("Senha").fill("campo-test-only");
+  await page.getByRole("button", { name: "Entrar no catálogo" }).click();
+  await page.getByRole("button", { name: "Nova observação", exact: true }).click();
+  const before = await (await page.request.get("/api/catalog")).json();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByRole("button", { name: "Fungo", exact: true }).click();
+  const buffer = await sharp({ create: { width: 80, height: 80, channels: 3, background: "#738453" } }).png().toBuffer();
+  await dialog.locator("input[type=file][multiple]").setInputFiles([
+    { name: "fungo1.png", mimeType: "image/png", buffer },
+    { name: "fungo2.png", mimeType: "image/png", buffer },
+  ]);
+  await dialog.getByRole("button", { name: "Identificar fotos", exact: true }).click();
+  await expect(dialog.getByRole("heading", { name: "Quais fotos deseja guardar?" })).toBeVisible();
+  await expect(dialog.getByRole("checkbox", { name: "Guardar foto 1" })).not.toBeChecked();
+  await expect(dialog.getByRole("checkbox", { name: "Guardar foto 2" })).not.toBeChecked();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(dialog.getByRole("checkbox", { name: "Guardar foto 2" })).toBeVisible();
+  expect(await dialog.evaluate((el) => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
+  const afterPreview = await (await page.request.get("/api/catalog")).json();
+  expect(afterPreview.observations.length).toBe(before.observations.length);
+  const response = page.waitForResponse((r) => r.url().endsWith("/api/identification/save"));
+  await dialog.getByRole("button", { name: "Salvar observação sem fotos", exact: true }).click();
+  const saved = await (await response).json();
+  await expect(dialog.getByText("Nenhuma foto foi guardada nesta observação.")).toBeVisible();
+  const detail = await (await page.request.get(`/api/observations/${saved.observation.id}`)).json();
+  expect(detail.photos).toEqual([]);
+  expect(detail.identifications[0].imageIds).toEqual([]);
 });
