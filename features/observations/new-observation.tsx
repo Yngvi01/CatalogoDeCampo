@@ -20,6 +20,7 @@ import type { Candidate } from "@/lib/validation/schemas";
 import { uploadDirect } from "@/lib/http/upload";
 import { PhotoGuide, photoOrgans } from "@/features/identification/photo-guide";
 import { CandidateComparison } from "@/features/identification/candidate-comparison";
+import { libraryPhotos } from "@/features/library/entries";
 import { deleteDraft, putDraft, type OfflineDraft } from "@/lib/offline/drafts";
 const fungalFields = [
   "Píleo",
@@ -200,6 +201,10 @@ export function NewObservation({
               <ImagePlus size={30} />
               <h3>O primeiro passo é observar.</h3>
               <p>JPEG, PNG ou WebP · até 5 fotos de 20 MB</p>
+              {group === "plant" && !photos.length && <figure className="upload-example">
+                <img src={libraryPhotos["mimosa-scabrella"].src} alt="Exemplo ilustrativo de bracatinga" />
+                <figcaption>Exemplo de foto · <em>Mimosa scabrella</em><br />Apenas prévia visual; não será enviada nem salva. Foto: <a href={libraryPhotos["mimosa-scabrella"].filePage} target="_blank" rel="noreferrer">{libraryPhotos["mimosa-scabrella"].author} · {libraryPhotos["mimosa-scabrella"].license}</a></figcaption>
+              </figure>}
               <div className="actions">
                 <label className="button button-primary">
                   <Camera size={16} /> Abrir câmera
