@@ -47,10 +47,12 @@ test("Identifica sem persistir fotos; só guarda a seleção explícita, inclusi
     JSON.stringify({ group: "plant", notes: "Consulta sem salvar" }),
   );
   form.set("hashes", JSON.stringify(hashes));
+  form.set("organs", JSON.stringify(["leaf", "flower"]));
   files.forEach((f) => form.append("photos", f));
   globalThis.fetch = async (_url, options) => {
     const images = (options!.body as FormData).getAll("images") as File[];
     assert.equal(images.length, 2);
+    assert.deepEqual((options!.body as FormData).getAll("organs"), ["leaf", "flower"]);
     for (const image of images)
       assert.equal(
         (await sharp(Buffer.from(await image.arrayBuffer())).metadata()).exif,
@@ -81,6 +83,7 @@ test("Identifica sem persistir fotos; só guarda a seleção explícita, inclusi
   const data = await snapshot();
   assert.equal(data.images.length, 1);
   assert.equal(data.images[0].hash, hashes[1]);
+  assert.equal(data.images[0].organ, "flower");
   assert.equal(data.identifications[0].imageIds.length, 1);
   assert.equal(saved.observation.status, "candidates");
   const without = await saveIdentifiedObservation(
@@ -100,6 +103,11 @@ test("Identifica sem persistir fotos; só guarda a seleção explícita, inclusi
     saveIdentifiedObservation(invalid, preview.receipt),
     /apenas fotos/,
   );
+  form.set("organs", JSON.stringify(["leaf"]));
+  await assert.rejects(previewIdentification(form), /cada foto/);
+  form.set("organs", JSON.stringify(["invalid", "flower"]));
+  await assert.rejects(previewIdentification(form));
+  form.set("organs", JSON.stringify(["leaf", "flower"]));
   globalThis.fetch = async () => {
     throw new Error("provider unavailable");
   };

@@ -24,6 +24,7 @@ const receiptSchema = z.object({
     .array(z.string().regex(/^[a-f0-9]{64}$/))
     .min(1)
     .max(5),
+  organs: z.array(z.enum(["auto", "leaf", "flower", "fruit", "bark"])).max(5).default([]),
   provider: z.enum(["plantnet", "fungi-context", "manual"]),
   candidates: z.array(candidateSchema).max(50),
   queriedAt: z.iso.datetime(),
@@ -60,6 +61,9 @@ export async function previewIdentification(form: FormData) {
   const hashes = receiptSchema.shape.hashes.parse(
     JSON.parse(String(form.get("hashes") || "[]")),
   );
+  const organs = receiptSchema.shape.organs.parse(JSON.parse(String(form.get("organs") || "[]")));
+  if (organs.length && organs.length !== hashes.length)
+    throw new Error("Informe uma parte da planta para cada foto.");
   const manual = form.get("manual") === "true";
   const files = form
     .getAll("photos")
@@ -100,11 +104,12 @@ export async function previewIdentification(form: FormData) {
   const result = manual
     ? { candidates: [], queriedAt: new Date().toISOString() }
     : data.group === "plant"
-      ? await identifyPlantBytes(images)
+      ? await identifyPlantBytes(images, organs)
       : await fungi.identify(observation, []);
   const value = receiptSchema.parse({
     data,
     hashes,
+    organs,
     provider: manual
       ? "manual"
       : data.group === "plant"
@@ -129,15 +134,16 @@ export async function saveIdentifiedObservation(
   const files = form
     .getAll("photos")
     .filter((f): f is File => f instanceof File);
-  const remaining = [...result.hashes];
+  const remaining = result.hashes.map((hash, index) => ({ hash, organ: result.organs[index] || "auto" }));
+  const selectedOrgans: string[] = [];
   for (const file of files) {
     if (!file.size || file.size > 20 * 1024 * 1024)
       throw new Error("Cada foto deve ter até 20 MB.");
-    const index = remaining.indexOf(
-      hash(new Uint8Array(await file.arrayBuffer())),
-    );
+    const fileHash = hash(new Uint8Array(await file.arrayBuffer()));
+    const index = remaining.findIndex(item => item.hash === fileHash);
     if (index < 0)
       throw new Error("Selecione apenas fotos usadas nesta identificação.");
+    selectedOrgans.push(remaining[index].organ);
     remaining.splice(index, 1);
   }
   form.set("data", JSON.stringify(result.data));
@@ -145,5 +151,5 @@ export async function saveIdentifiedObservation(
     candidates: result.candidates,
     provider: result.provider,
     queriedAt: result.queriedAt,
-  });
+  }, selectedOrgans);
 }

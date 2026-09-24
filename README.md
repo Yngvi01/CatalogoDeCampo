@@ -221,3 +221,7 @@ O banco registra a limpeza de arquivos antes de remover o registro. Se o disco o
 A tela inicial inclui **Janela para a natureza**, com fotos aleatórias de plantas e florestas e o botão **Ver outra paisagem**. Configure `PEXELS_API_KEY` somente no servidor (na Vercel, em Production e Preview). A chave gratuita é obtida em https://www.pexels.com/api/.
 
 O servidor busca até 80 fotos e guarda apenas URLs e créditos no cache por 24 horas. As imagens carregam diretamente do Pexels, sem entrar no catálogo ou no bucket. O sorteio ocorre no navegador, sem nova consulta ao provedor por clique. Em caso de falha, o último lote em cache continua disponível; sem cache, o cartão informa a indisponibilidade. Os créditos do fotógrafo e do Pexels acompanham cada imagem. As frases continuam independentes.
+
+### Fotografar e comparar
+
+Em **Nova observação**, o guia orienta fotos de partes diferentes da mesma planta. Cada foto pode ser marcada como folha, flor, fruto, casca ou automático; essa seleção é enviada ao Pl@ntNet e preservada apenas nas fotos escolhidas para salvar. Após a consulta, compare até três candidatos com nomes, família, gênero, pontuação e referências disponíveis. A comparação também está na observação salva. A pontuação não representa confirmação da espécie. Orientações: https://docs.plantnet.org/en/cookbook/making-a-good-observation/.

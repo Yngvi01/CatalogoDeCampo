@@ -19,6 +19,7 @@ import {
   api,
   send,
 } from "@/components/shared";
+import { CandidateComparison } from "@/features/identification/candidate-comparison";
 import { Button } from "@/components/ui/button";
 import { dateLabel, statuses, distanceKm } from "@/lib/utils";
 import type {
@@ -411,6 +412,7 @@ export function ObservationDetail({
           </p>
           {latest && (
             <>
+              <details className="form-details"><summary>Comparar espécies sugeridas</summary><CandidateComparison key={latest.id} candidates={latest.candidates} /></details>
               <div className="candidate-list">
                 {latest.candidates.length ? (
                   latest.candidates.map((c, i) => (

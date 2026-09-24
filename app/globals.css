@@ -2708,3 +2708,29 @@ details > summary {
 .modal:has(.nature-lightbox) { width: min(1100px, 94vw); }
 .nature-lightbox img { display: block; width: 100%; height: auto; max-height: 70dvh; object-fit: contain; }
 .nature-lightbox figcaption { text-align: center; }
+
+.photo-guide { padding: 16px; margin: 18px 0; border: 1px solid var(--border); border-radius: 10px; }
+.photo-guide h3, .candidate-comparison h3 { margin-top: 0; }
+.photo-guide p, .candidate-comparison > p { color: var(--muted); line-height: 1.6; }
+.photo-guide-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; margin: 18px 0; }
+.photo-guide-grid > div { display: flex; flex-direction: column; gap: 8px; }
+.photo-guide-grid span, .photo-guide > a { font-size: 12px; line-height: 1.5; color: var(--muted); }
+.photo-previews .guided-photo { width: 160px; height: auto; }
+.guided-photo label { display: block; font-size: 11px; line-height: 1.6; }
+.guided-photo select { width: 100%; margin-top: 5px; font-size: 12px; }
+.comparison-options { display: flex; gap: 12px; flex-wrap: wrap; margin: 16px 0; }
+.comparison-options label { display: flex; align-items: center; gap: 7px; font-size: 12px; }
+.comparison-options input { width: 16px; height: 16px; margin: 0; }
+.comparison-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.comparison-species { padding: 14px; min-width: 0; overflow-wrap: anywhere; }
+.comparison-species h4 { font-size: 17px; margin: 12px 0; }
+.comparison-species dt { color: var(--muted); font-size: 11px; margin-top: 12px; }
+.comparison-species dd { margin: 4px 0 12px; font-size: 13px; }
+.comparison-species figure { margin: 12px 0 0; }
+.comparison-species img { width: 100%; height: 140px; object-fit: contain; }
+.comparison-species figcaption { font-size: 10px; color: var(--muted); }
+@media (max-width: 600px) {
+  .photo-guide-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .comparison-grid { grid-template-columns: minmax(0, 1fr); }
+}
+.photo-previews .guided-photo > img { height: 120px; object-fit: contain; }

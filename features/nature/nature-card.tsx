@@ -1,12 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Leaf, Shuffle, Maximize2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/shared";
 import type { NaturePhoto, NaturePhotosResponse } from "./types";
 
 export function NatureCard() {
+  const previewRef = useRef<HTMLButtonElement>(null);
+  const wasExpanded = useRef(false);
   const [expanded, setExpanded] = useState(false);
   const [photos, setPhotos] = useState<NaturePhoto[]>([]);
   const [index, setIndex] = useState(0);
@@ -29,6 +31,10 @@ export function NatureCard() {
       });
     return () => controller.abort();
   }, [revision]);
+  useEffect(() => {
+    if (!expanded && wasExpanded.current) previewRef.current?.focus();
+    wasExpanded.current = expanded;
+  }, [expanded]);
   const photo = photos[index];
   return (
     <section className="nature-card panel" aria-label="Janela para a natureza">
@@ -42,7 +48,7 @@ export function NatureCard() {
       {photo ? (
         <figure>
           <div className="nature-image">
-            {!failed ? <button className="nature-preview" aria-label="Ampliar foto de natureza" onClick={() => setExpanded(true)}><img key={photo.id} src={photo.image} alt={photo.alt} width={1200} height={627} loading="lazy" decoding="async" onError={() => setFailed(true)} /><span className="nature-expand"><Maximize2 size={14} /> Ampliar foto</span></button> : <p role="status">Esta foto não carregou. Experimente outra paisagem.</p>}
+            {!failed ? <button ref={previewRef} className="nature-preview" aria-label="Ampliar foto de natureza" onClick={() => setExpanded(true)}><img key={photo.id} src={photo.image} alt={photo.alt} width={1200} height={627} loading="lazy" decoding="async" onError={() => setFailed(true)} /><span className="nature-expand"><Maximize2 size={14} /> Ampliar foto</span></button> : <p role="status">Esta foto não carregou. Experimente outra paisagem.</p>}
           </div>
           <figcaption>Foto de <a href={photo.url} target="_blank" rel="noreferrer">{photo.photographer}</a> · <a href="https://www.pexels.com" target="_blank" rel="noreferrer">Fotos fornecidas pelo Pexels ↗</a></figcaption>
         </figure>

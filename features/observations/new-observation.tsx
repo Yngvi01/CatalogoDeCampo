@@ -18,6 +18,8 @@ import {
 } from "@/lib/http/identification-photo";
 import type { Candidate } from "@/lib/validation/schemas";
 import { uploadDirect } from "@/lib/http/upload";
+import { PhotoGuide, photoOrgans } from "@/features/identification/photo-guide";
+import { CandidateComparison } from "@/features/identification/candidate-comparison";
 const fungalFields = [
   "Píleo",
   "Cor",
@@ -42,6 +44,7 @@ export function NewObservation({
   onClose: () => void;
   onSaved: (id: string, message?: string) => void;
 }) {
+  const [organs, setOrgans] = useState<string[]>([]);
   const [result, setResult] = useState<{
     receipt: string;
     candidates: Candidate[];
@@ -126,6 +129,7 @@ export function NewObservation({
                 JSON.stringify(await Promise.all(photos.map(photoHash))),
               );
               form.set("manual", String(manual));
+              form.set("organs", JSON.stringify(photos.map((_, i) => group === "plant" ? organs[i] || "auto" : "auto")));
               if (!manual)
                 for (const photo of photos)
                   form.append(
@@ -169,6 +173,7 @@ export function NewObservation({
                 <TreeDeciduous size={16} /> Fungo
               </button>
             </div>
+            {group === "plant" && <PhotoGuide />}
             <div className="upload-area">
               <ImagePlus size={30} />
               <h3>O primeiro passo é observar.</h3>
@@ -200,17 +205,19 @@ export function NewObservation({
             {!!photos.length && (
               <div className="photo-previews">
                 {photos.map((p, i) => (
-                  <div key={`${p.name}-${i}`}>
+                  <div className="guided-photo" key={`${p.name}-${i}`}>
                     <img src={previews[i]} alt={p.name} />
                     <button
                       type="button"
                       aria-label={`Remover ${p.name}`}
-                      onClick={() =>
-                        setPhotos(photos.filter((_, n) => i !== n))
-                      }
+                      onClick={() => {
+                        setPhotos(photos.filter((_, n) => i !== n));
+                        setOrgans(photos.map((_, n) => organs[n] || "auto").filter((_, n) => i !== n));
+                      }}
                     >
                       <X size={14} />
                     </button>
+                    {group === "plant" && <label>Foto {i + 1}: parte da planta<select aria-label={`Parte da planta na foto ${i + 1}`} value={organs[i] || "auto"} onChange={e => setOrgans(photos.map((_, n) => n === i ? e.target.value : organs[n] || "auto"))}>{photoOrgans.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>}
                   </div>
                 ))}
               </div>
@@ -367,27 +374,7 @@ export function NewObservation({
               ? "Identificação manual"
               : "Resultado da identificação"}
           </h2>
-          <div className="candidate-list">
-            {result.candidates.map((candidate, index) => (
-              <div
-                className="candidate"
-                key={`${candidate.scientificName}-${index}`}
-              >
-                <span className="candidate-number">{index + 1}</span>
-                <div>
-                  <h3>
-                    <em>{candidate.scientificName}</em>
-                  </h3>
-                  <p>{candidate.commonNames.join(", ") || candidate.family}</p>
-                  <small>
-                    {candidate.score === null
-                      ? "Candidato contextual, sem análise visual"
-                      : `Similaridade visual: ${(candidate.score * 100).toFixed(1)}%`}
-                  </small>
-                </div>
-              </div>
-            ))}
-          </div>
+          <CandidateComparison candidates={result.candidates} />
           {!result.candidates.length && (
             <p>
               {result.provider === "manual"

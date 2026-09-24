@@ -304,3 +304,41 @@ test("identificação consulta antes de salvar e permite guardar a observação 
     ),
   ).toBe(false);
 });
+
+test("guia de fotos e comparação preservam seleção e não salvam a consulta", async ({ page }) => {
+  await page.goto("/");
+  await page.getByLabel("Senha").fill("campo-test-only");
+  await page.getByRole("button", { name: "Entrar no catálogo" }).click();
+  const before = await (await page.request.get("/api/catalog")).json();
+  await page.getByRole("button", { name: "Nova observação", exact: true }).click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog.getByRole("region", { name: "Como fotografar para identificar" })).toBeVisible();
+  const image = await sharp({ create: { width: 300, height: 200, channels: 3, background: "#698448" } }).png().toBuffer();
+  await dialog.locator("input[type=file][multiple]").setInputFiles([
+    { name: "folha.png", mimeType: "image/png", buffer: image },
+    { name: "flor.png", mimeType: "image/png", buffer: image },
+  ]);
+  await dialog.getByLabel("Parte da planta na foto 1").selectOption("leaf");
+  await dialog.getByLabel("Parte da planta na foto 2").selectOption("flower");
+  await dialog.getByRole("button", { name: "Remover folha.png" }).click();
+  await expect(dialog.getByLabel("Parte da planta na foto 1")).toHaveValue("flower");
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await dialog.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
+  await page.route("**/api/identification/preview", async route => {
+    expect(route.request().postDataBuffer()?.toString()).toContain('["flower"]');
+    await route.fulfill({ json: { receipt: "mock-result-not-for-saving", provider: "plantnet", candidates: Array.from({ length: 4 }, (_, i) => ({ scientificName: `Espécie de teste ${i + 1}`, commonNames: [], genus: "Gênero", family: "Família", score: 0.8 - i * 0.1, referenceImages: [] })) } });
+  });
+  await dialog.getByRole("button", { name: "Identificar fotos", exact: true }).click();
+  const comparison = dialog.getByRole("region", { name: "Comparar espécies sugeridas" });
+  await expect(comparison.getByRole("article")).toHaveCount(3);
+  await expect(comparison.getByRole("checkbox", { name: "Espécie de teste 4" })).toBeDisabled();
+  await comparison.getByRole("checkbox", { name: "Espécie de teste 1" }).uncheck();
+  await comparison.getByRole("checkbox", { name: "Espécie de teste 4" }).check();
+  await expect(comparison.getByRole("article")).toHaveCount(3);
+  await expect(dialog.getByRole("checkbox", { name: "Guardar foto 1" })).not.toBeChecked();
+  expect(await dialog.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
+  await page.screenshot({ path: "test-results/comparison-mobile.png", fullPage: true });
+  const after = await (await page.request.get("/api/catalog")).json();
+  expect(after.observations.length).toBe(before.observations.length);
+  await dialog.getByRole("button", { name: "Descartar consulta" }).click();
+});

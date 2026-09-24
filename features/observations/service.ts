@@ -27,6 +27,7 @@ export async function createObservation(
     provider: string;
     queriedAt: string;
   },
+  organs: string[] = [],
 ) {
   const input = observationInput.parse(
     JSON.parse(String(form.get("data") || "{}")),
@@ -41,7 +42,11 @@ export async function createObservation(
   const id = randomUUID(),
     photos: Photo[] = [];
   try {
-    for (const f of files) photos.push(await savePhoto(f, id));
+    for (const [index, f] of files.entries()) {
+      const photo = await savePhoto(f, id);
+      photo.organ = organs[index] || "auto";
+      photos.push(photo);
+    }
     const existingPhotos = await list<Photo>("images");
     const duplicates = photos.filter(
       (p, i) =>
