@@ -18,6 +18,7 @@ test("explora planta e composto com fonte, filtro do RS e efeito separado", asyn
   await page.getByLabel("Senha").fill("campo-test-only");
   await page.getByRole("button", { name: "Entrar no catálogo" }).click();
   await page.getByRole("button", { name: "Pesquisa", exact: true }).click();
+  await expect(page.getByRole("button", { name: /Ver 4 exemplos da literatura no mapa/ })).toBeVisible();
   const explorer = page.getByRole("region", { name: "Explorar substâncias em plantas" });
   await explorer.getByRole("combobox", { name: "Nome científico da planta" }).fill("Ilex paraguariensis");
   await explorer.getByRole("button", { name: "Buscar relações" }).click();
@@ -39,6 +40,8 @@ test("explora planta e composto com fonte, filtro do RS e efeito separado", asyn
   await page.getByRole("button", { name: "Mapa de evidências" }).click();
   const evidenceMap = page.getByRole("region", { name: "Mapa de evidências por composto" });
   await expect(evidenceMap.getByText("EXEMPLO · IDENTIDADE TAXONÔMICA")).toBeVisible();
+  await expect(evidenceMap.locator(".evidence-index-card")).toHaveCount(5);
+  await expect(evidenceMap.getByText("Nenhum composto corresponde à busca.")).toHaveCount(0);
   await evidenceMap.getByRole("combobox", { name: "Filtrar por efeito" }).selectOption("psychedelic");
   await expect(evidenceMap.locator(".evidence-relation").filter({ hasText: "Mimosa scabrella" }).getByText("N,N-dimetiltriptamina (DMT)")).toBeVisible();
   await evidenceMap.getByRole("combobox", { name: "Filtrar por efeito" }).selectOption("all");

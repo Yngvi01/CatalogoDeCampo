@@ -24,7 +24,7 @@ export function EvidenceMap({ data, query, onSpecies }: { data: Catalog; query: 
   const speciesById = new Map([...data.species, ...examples.species].map(item => [item.id, item]));
   const linked = selected ? [...data.evidence, ...examples.evidence].filter(item => item.compoundId === selected.id && speciesById.has(item.speciesId)) : [];
   const grouped = [...new Set(linked.map(item => item.speciesId))].map(id => ({ species: speciesById.get(id)!, evidence: linked.filter(item => item.speciesId === id) }));
-  const listed = data.compounds.filter(item => normalize([item.name, item.chemicalClass, ...item.synonyms].join(" ")).includes(normalize(query)))
+  const listed = [...data.compounds, ...examples.compounds].filter(item => normalize([item.name, item.chemicalClass, ...item.synonyms].join(" ")).includes(normalize(query)))
     .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
 
   return <section className="evidence-map" aria-label="Mapa de evidências por composto">
@@ -70,9 +70,9 @@ export function EvidenceMap({ data, query, onSpecies }: { data: Catalog; query: 
       </article>)}</div> : <p className="evidence-discovery-empty">Nenhuma relação corresponde aos filtros. Amplie os critérios ou registre as fontes que faltam.</p>}
     </div>}
     {!selected ? listed.length ? <div className="evidence-index">{listed.map(compound => {
-      const occurrences = data.evidence.filter(item => item.compoundId === compound.id);
+      const occurrences = [...data.evidence, ...examples.evidence].filter(item => item.compoundId === compound.id);
       return <button type="button" className="panel evidence-index-card" key={compound.id} onClick={() => setSelectedId(compound.id)}>
-        <strong>{compound.name}</strong><span>{occurrences.length} {occurrences.length === 1 ? "relação com espécie" : "relações com espécies"} · {(compound.effectClaims || []).length} {(compound.effectClaims || []).length === 1 ? "efeito com fonte" : "efeitos com fonte"}</span>
+        <strong>{compound.name}</strong>{compound.id.startsWith("example-") && <span className="badge">EXEMPLO DA LITERATURA</span>}<span>{occurrences.length} {occurrences.length === 1 ? "relação com espécie" : "relações com espécies"} · {(compound.effectClaims || []).length} {(compound.effectClaims || []).length === 1 ? "efeito com fonte" : "efeitos com fonte"}</span>
       </button>;
     })}</div> : <Empty icon={<FlaskConical size={30} />} title="Nenhum composto corresponde à busca." text="Cadastre um composto ou ajuste a busca para explorar suas evidências." /> : <>
       <Button type="button" variant="outline" size="sm" onClick={() => setSelectedId("")}><ArrowLeft size={14} /> Todos os compostos</Button>

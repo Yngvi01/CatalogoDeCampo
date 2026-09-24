@@ -59,6 +59,7 @@ export function ResearchPanel({
   const compounds = data.compounds.filter((c) =>
     normalize(JSON.stringify(c)).includes(normalize(query)),
   );
+  const exampleCount = data.curatedExamples?.species.length ?? 0;
   return (
     <>
       <ErrorText message={error} />
@@ -68,13 +69,16 @@ export function ResearchPanel({
         <div>
           <h3>Uma pergunta pode abrir muitos caminhos.</h3>
           <p>Explore relações planta–composto no LOTUS, confira substâncias no PubChem e revise os estudos na Europe PMC.</p>
+          {exampleCount > 0 && <button type="button" className="research-example-link" onClick={() => setTab("map")}>
+            Ver {exampleCount} exemplos da literatura no mapa <ArrowUpRight size={14} />
+          </button>}
         </div>
         <span className="pill">CIÊNCIA COM CONTEXTO</span>
       </div>
       <div className="catalog-toolbar">
         <div className="tabs">
           <button className={tab === "explore" ? "active" : ""} onClick={() => setTab("explore")}><Search size={15} /> Explorar substâncias</button>
-          <button className={tab === "map" ? "active" : ""} onClick={() => setTab("map")}><FlaskConical size={15} /> Mapa de evidências</button>
+          <button className={tab === "map" ? "active" : ""} onClick={() => setTab("map")}><FlaskConical size={15} /> Mapa de evidências {exampleCount > 0 && <span>{exampleCount} exemplos</span>}</button>
           <button className={tab === "bookmarks" ? "active" : ""} onClick={() => setTab("bookmarks")}><Bookmark size={15} /> Para revisar <span>{data.bookmarks.length}</span></button>
           <button
             className={tab === "discoveries" ? "active" : ""}
