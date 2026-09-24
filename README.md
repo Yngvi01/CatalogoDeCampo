@@ -76,6 +76,7 @@ Chaves, `.env` e senha não são exportados. Não use prefixo `NEXT_PUBLIC_` par
 - **Catálogo:** acompanhe a ficha da espécie e seus diferentes encontros. Registre dados pessoais e evidências, com origem e tipo claramente separados.
 - **Campo:** veja observações com coordenadas no mapa e abra o registro pela lista ou marcador.
 - **Meu caderno:** escreva páginas com título, texto e etiquetas, releia pelo índice, exporte em TXT ou arquive para consultar depois.
+- **Biblioteca:** consulte dez fichas de plantas documentadas no Rio Grande do Sul, incluindo duas visões gerais de gêneros. Cada ficha distingue composição, uso tradicional e segurança, indica a parte estudada quando conhecida e liga as afirmações às fontes. As fotos locais incluem crédito e licença do Wikimedia Commons; nos gêneros, a espécie retratada é identificada. A biblioteca é informativa e não altera o catálogo pessoal nem valida consumo por fotografia.
 - **Pesquisa → Descobertas:** investigue uma espécie na Europe PMC, revise descobertas, cadastre compostos e incorpore evidências deliberadamente.
 - **Dados e backup:** exporte o ZIP completo regularmente.
 

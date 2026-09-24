@@ -36,6 +36,7 @@ import { ObservationDetail } from "@/features/observations/observation-detail";
 import { SpeciesDetail } from "@/features/species/species-detail";
 import { BackupPanel } from "@/features/backup/backup-panel";
 import { NotebookPanel } from "@/features/notebook/notebook-panel";
+import { LibraryPanel } from "@/features/library/library-panel";
 import { ResearchPanel } from "@/features/research/research-panel";
 import type { Catalog, Species } from "@/lib/validation/schemas";
 import { normalize, dateLabel, statuses, distanceKm } from "@/lib/utils";
@@ -43,11 +44,12 @@ const FieldMap = dynamic(() => import("@/features/map/field-map"), {
   ssr: false,
   loading: () => <Loading />,
 });
-type Area = "identify" | "field" | "catalog" | "research" | "notebook";
+type Area = "identify" | "field" | "catalog" | "research" | "notebook" | "library";
 const navigation = [
   { id: "identify" as const, label: "Identificar", icon: ScanLine },
   { id: "field" as const, label: "Campo", icon: Map },
   { id: "catalog" as const, label: "Catálogo", icon: Library },
+  { id: "library" as const, label: "Biblioteca", icon: BookOpen },
   { id: "notebook" as const, label: "Meu caderno", icon: NotebookPen },
   { id: "research" as const, label: "Pesquisa", icon: FlaskConical },
 ];
@@ -288,6 +290,8 @@ export function CampoApp() {
                       ? "CONHECIMENTO QUE CRIA RAÍZES"
                       : area === "notebook"
                         ? "SEU LIVRO EM CONSTRUÇÃO"
+                        : area === "library"
+                          ? "FLORA DOCUMENTADA DO RIO GRANDE DO SUL"
                         : "DAS OBSERVAÇÕES ÀS EVIDÊNCIAS"}
               </span>
               <h1>
@@ -299,6 +303,8 @@ export function CampoApp() {
                       ? "Um catálogo em crescimento."
                       : area === "notebook"
                         ? "Meu caderno"
+                        : area === "library"
+                          ? "Biblioteca de plantas"
                         : "Siga as perguntas."}
               </h1>
               <p>
@@ -310,6 +316,8 @@ export function CampoApp() {
                       ? "Espécies, histórias e detalhes que você decidiu preservar."
                       : area === "notebook"
                         ? "Um espaço para suas leituras, ideias e anotações. Escreva livremente e volte quando quiser."
+                        : area === "library"
+                          ? "Plantas encontradas no RS, com usos, composição e fontes para consultar."
                         : "Literatura, compostos e conexões — com a fonte sempre por perto."}
               </p>
             </div>
@@ -360,6 +368,7 @@ export function CampoApp() {
                   </section>
                   <ReflectionCard />
                   <NatureCard />
+                  <button className="library-home-link panel" onClick={() => setArea("library")}><BookOpen size={20} /><span><strong>Conheça a flora do Rio Grande do Sul</strong><small>Biblioteca com fichas e fontes consultáveis</small></span><ArrowRight size={17} /></button>
                   <div className="stats-grid">
                     {[
                       {
@@ -401,7 +410,7 @@ export function CampoApp() {
                   </div>
                 </>
               )}
-              {area !== "research" && area !== "notebook" && (
+              {area !== "research" && area !== "notebook" && area !== "library" && (
                 <>
                   <div className="section-heading">
                     <div>
@@ -746,6 +755,7 @@ export function CampoApp() {
                   )}
                 </>
               )}
+              {area === "library" && <LibraryPanel query={query} />}
               {area === "notebook" && (
                 <NotebookPanel notes={data.notes} query={query} refresh={refresh} />
               )}

@@ -1,0 +1,34 @@
+import { test, expect } from "@playwright/test";
+
+test("biblioteca: navegação, busca, filtros, fontes e layout móvel", async ({ page }) => {
+  const errors: string[] = [];
+  page.on("pageerror", error => errors.push(error.message));
+  await page.goto("/");
+  await page.getByLabel("Senha").fill("campo-test-only");
+  await page.getByRole("button", { name: "Entrar no catálogo" }).click();
+  await page.getByRole("button", { name: "Biblioteca", exact: true }).click();
+  const library = page.getByRole("region", { name: "Biblioteca de plantas do Rio Grande do Sul" });
+  await expect(library.getByText("10 fichas encontradas")).toBeVisible();
+  await expect(library.locator(".library-card")).toHaveCount(10);
+  await library.getByRole("textbox", { name: "Buscar na biblioteca" }).fill("maytenus");
+  await expect(library.locator(".library-card")).toHaveCount(1);
+  await library.getByRole("button", { name: "Abrir ficha de Espinheira-santa" }).click();
+  const detail = page.getByRole("dialog");
+  await expect(detail.getByText("Kew trata Maytenus ilicifolia")).toBeVisible();
+  await expect(detail.locator(".library-detail-photo img")).toBeVisible();
+  await expect(detail.getByRole("link", { name: /Wikimedia Commons/ })).toHaveAttribute("href", /commons.wikimedia.org/);
+  await expect(detail.getByRole("link", { name: /Anvisa · Relatório/ }).first()).toHaveAttribute("href", /gov.br/);
+  await detail.getByRole("button", { name: "Fechar" }).click();
+  await library.getByRole("textbox", { name: "Buscar na biblioteca" }).fill("");
+  await library.getByRole("button", { name: "Segurança", exact: true }).click();
+  await expect(library.locator(".library-card")).toHaveCount(6);
+  await library.getByRole("button", { name: "Todas", exact: true }).click();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(library.getByText("10 fichas encontradas")).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.screenshot({ path: "test-results/library-mobile.png", fullPage: true });
+  await library.getByRole("button", { name: "Abrir ficha de Maracujás-do-mato" }).click();
+  await expect(detail.getByText("Passiflora alata", { exact: false }).first()).toBeVisible();
+  expect(await detail.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
+  expect(errors).toEqual([]);
+});

@@ -1,0 +1,72 @@
+{
+  "erythrina-falcata": {
+    "src": "/library/erythrina-falcata.jpg",
+    "filePage": "https://commons.wikimedia.org/wiki/File:Copa_florida_de_Erythrina_Falcata_(Corticeira-da-Serra)_01.jpg",
+    "author": "Pedro Teixeira 1806",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0"
+  },
+  "mimosa-scabrella": {
+    "src": "/library/mimosa-scabrella.jpg",
+    "filePage": "https://commons.wikimedia.org/wiki/File:Fabales_-_Mimosa_scabrella_1.jpg",
+    "author": "Emőke Dénes",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0"
+  },
+  "ipomoea-spp": {
+    "src": "/library/ipomoea-spp.jpg",
+    "filePage": "https://commons.wikimedia.org/wiki/File:Ipomoea_purpurea,_campanilla_I.jpg",
+    "author": "Juan Carlos Fonseca Mata",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0"
+  },
+  "baccharis-trimera": {
+    "src": "/library/baccharis-trimera.jpg",
+    "filePage": "https://commons.wikimedia.org/wiki/File:Baccharis_trimera_-_Jardim_Bot%C3%A2nico_de_S%C3%A3o_Paulo_-_DSC_0075.jpg",
+    "author": "Carlo Brescia",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0"
+  },
+  "achyrocline-satureioides": {
+    "src": "/library/achyrocline-satureioides.jpg",
+    "filePage": "https://commons.wikimedia.org/wiki/File:Achyrocline_satureioides.jpg",
+    "author": "João Medeiros",
+    "license": "CC BY 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/2.0"
+  },
+  "ilex-paraguariensis": {
+    "src": "/library/ilex-paraguariensis.jpg",
+    "filePage": "https://commons.wikimedia.org/wiki/File:Ilex_paraguariensis_at_Buenos_Aires_Botanical_Garden.jpg",
+    "author": "Mx. Granger",
+    "license": "CC0",
+    "licenseUrl": "http://creativecommons.org/publicdomain/zero/1.0/deed.en"
+  },
+  "monteverdia-ilicifolia": {
+    "src": "/library/monteverdia-ilicifolia.jpg",
+    "filePage": "https://commons.wikimedia.org/wiki/File:Flora%C3%A7%C3%A3o_da_espinheira-santa.jpg",
+    "author": "Mari Aurora Favero Reis",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0"
+  },
+  "aloysia-gratissima": {
+    "src": "/library/aloysia-gratissima.jpg",
+    "filePage": "https://commons.wikimedia.org/wiki/File:Aloysia_gratissima_(Verbenaceae)_-_flowers_and_leaves.jpg",
+    "author": "Juan Carlos Fonseca Mata",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0"
+  },
+  "passiflora-spp": {
+    "src": "/library/passiflora-spp.jpg",
+    "filePage": "https://commons.wikimedia.org/wiki/File:Passiflora_alata_-_dudamanini_-_527179236.jpeg",
+    "author": "dudamanini",
+    "license": "CC BY 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/4.0"
+  },
+  "solanum-mauritianum": {
+    "src": "/library/solanum-mauritianum.jpg",
+    "filePage": "https://commons.wikimedia.org/wiki/File:Solanum_mauritianum_kz02.jpg",
+    "author": "Krzysztof Ziarnek, Kenraiz",
+    "license": "CC BY 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/4.0"
+  }
+}

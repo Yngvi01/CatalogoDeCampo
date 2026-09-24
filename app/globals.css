@@ -2734,3 +2734,59 @@ details > summary {
   .comparison-grid { grid-template-columns: minmax(0, 1fr); }
 }
 .photo-previews .guided-photo > img { height: 120px; object-fit: contain; }
+
+.library-intro { display: flex; align-items: flex-start; gap: 18px; padding: 22px; margin-bottom: 22px; }
+.library-intro > svg { color: #abc989; flex: none; }
+.library-intro h2 { margin: 0 0 7px; font-family: Georgia, serif; font-weight: 400; font-size: 25px; }
+.library-intro p { margin: 0; color: var(--muted); line-height: 1.6; }
+.library-intro .pill { margin-left: auto; white-space: nowrap; }
+.library-toolbar { display: grid; gap: 14px; margin-bottom: 12px; }
+.library-toolbar > label { display: flex; align-items: center; gap: 10px; border: 1px solid var(--border); border-radius: 8px; padding: 0 12px; }
+.library-toolbar input { width: 100%; border: 0; background: transparent; padding: 12px 0; outline: 0; }
+.library-filters { display: flex; flex-wrap: wrap; gap: 7px; }
+.library-filters button { border: 1px solid var(--border); border-radius: 6px; padding: 7px 10px; font-size: 11px; }
+.library-filters button.active { background: #d7e9b5; color: #172318; }
+.library-count { color: var(--muted); font-size: 12px; }
+.library-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.library-card { position: relative; text-align: left; padding: 0; overflow: hidden; cursor: pointer; }
+.library-card:hover, .library-card:focus-visible { border-color: #a6bd80; }
+.library-card > img { display: block; width: 100%; height: 185px; object-fit: contain; background: #1b2920; }
+.library-card-copy { display: grid; gap: 6px; padding: 16px; }
+.library-card-copy small { letter-spacing: 0.12em; font-size: 9px; color: #a6bd80; }
+.library-card-copy strong { font-family: Georgia, serif; font-size: 20px; font-weight: 400; }
+.library-card-copy em { font-size: 12px; }
+.library-card-copy > span { margin-top: 5px; color: var(--muted); font-size: 11px; }
+.library-card-arrow { position: absolute; right: 16px; bottom: 17px; }
+.library-empty { padding: 25px; color: var(--muted); }
+.library-detail-photo { margin: 0; }
+.library-detail-photo img { width: 100%; max-height: 340px; object-fit: contain; background: #1b2920; }
+.library-detail-photo figcaption { color: var(--muted); font-size: 11px; line-height: 1.5; padding: 8px 0; }
+.library-detail-photo a, .library-sources a, .library-claim a { text-decoration: underline; text-underline-offset: 3px; }
+.library-detail-body { line-height: 1.65; }
+.library-detail-body h3 { margin: 25px 0 6px; font-size: 17px; }
+.library-detail-body p { margin: 5px 0 12px; }
+.library-lead { margin-top: 15px !important; }
+.library-note { padding: 12px; border-left: 2px solid #a6bd80; background: #a6bd8010; color: var(--muted); }
+.library-claims { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 10px; }
+.library-claim { border: 1px solid var(--border); border-radius: 8px; padding: 14px; }
+.library-claim h4 { margin: 10px 0 5px; font-size: 15px; }
+.library-claim p { font-size: 12px; line-height: 1.6; }
+.library-claim small { display: block; margin-bottom: 10px; color: var(--muted); }
+.library-claim a { display: inline-flex; gap: 4px; align-items: center; font-size: 11px; line-height: 1.5; }
+.library-sources { padding-left: 22px; font-size: 12px; line-height: 1.9; }
+.library-link { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; }
+@media (max-width: 900px) { .library-grid { grid-template-columns: repeat(2, minmax(0,1fr)); } }
+@media (max-width: 600px) {
+  .library-intro { flex-wrap: wrap; padding: 17px; }
+  .library-intro .pill { margin-left: 0; }
+  .library-grid { grid-template-columns: 1fr; }
+  .library-card > img { height: 190px; }
+  .library-claims { grid-template-columns: 1fr; }
+  .sidebar .nav-item { font-size: 8px; padding-inline: 2px; }
+}
+
+.library-home-link { display: flex; align-items: center; gap: 14px; width: 100%; margin: 0 0 26px; padding: 17px 20px; text-align: left; cursor: pointer; }
+.library-home-link > span { display: grid; gap: 4px; flex: 1; }
+.library-home-link strong { font-size: 14px; }
+.library-home-link small { color: var(--muted); font-size: 11px; }
+.library-home-link > svg:first-child { color: #a6bd80; }

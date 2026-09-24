@@ -10,6 +10,7 @@ import {
   evidenceLabels,
 } from "@/components/shared";
 import { Button } from "@/components/ui/button";
+import { LibraryLink } from "@/features/library/library-panel";
 import { EvidenceForm } from "@/features/research/evidence-form";
 import type { Catalog } from "@/lib/validation/schemas";
 import { dateLabel } from "@/lib/utils";
@@ -42,6 +43,7 @@ export function SpeciesDetail({
       onClose={onClose}
       wide
     >
+      {s.group === "plant" && <LibraryLink scientificName={s.scientificName} />}
       <ErrorText message={error} />
       {notice && <p className="notice">{notice}</p>}
       <div className="species-actions">
