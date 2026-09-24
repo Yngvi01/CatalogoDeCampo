@@ -7,7 +7,7 @@ import type { Catalog, Evidence } from "@/lib/validation/schemas";
 import { normalize } from "@/lib/utils";
 import { effectLabels, contextLabels } from "./effects";
 import { discoverEvidenceRelations, type DiscoveryFilters } from "./evidence-discovery";
-import { curatedExamples, ipomoeaTaxonomySource } from "./curated-examples";
+import { ipomoeaTaxonomySource } from "./curated-examples";
 
 const originLabels: Record<Evidence["origin"], string> = {
   personal: "Registro pessoal", automatic: "Consulta automática", publication: "Publicação revisada",
@@ -18,13 +18,11 @@ export function EvidenceMap({ data, query, onSpecies }: { data: Catalog; query: 
   const [selectedId, setSelectedId] = useState("");
   const [filters, setFilters] = useState<Omit<DiscoveryFilters, "query">>({ effect: "all", context: "all", studyType: "all", onlyRs: false, onlySourced: false });
   const updateFilter = <K extends keyof typeof filters>(key: K, value: (typeof filters)[K]) => setFilters(current => ({ ...current, [key]: value }));
-  const relations = [
-    ...discoverEvidenceRelations(data, { ...filters, query }),
-    ...discoverEvidenceRelations(curatedExamples, { ...filters, query }),
-  ];
-  const selected = [...data.compounds, ...curatedExamples.compounds].find(item => item.id === selectedId);
-  const speciesById = new Map([...data.species, ...curatedExamples.species].map(item => [item.id, item]));
-  const linked = selected ? [...data.evidence, ...curatedExamples.evidence].filter(item => item.compoundId === selected.id && speciesById.has(item.speciesId)) : [];
+  const examples = data.curatedExamples ?? { species: [], compounds: [], evidence: [] };
+  const relations = [...discoverEvidenceRelations(data, { ...filters, query }), ...discoverEvidenceRelations(examples, { ...filters, query })];
+  const selected = [...data.compounds, ...examples.compounds].find(item => item.id === selectedId);
+  const speciesById = new Map([...data.species, ...examples.species].map(item => [item.id, item]));
+  const linked = selected ? [...data.evidence, ...examples.evidence].filter(item => item.compoundId === selected.id && speciesById.has(item.speciesId)) : [];
   const grouped = [...new Set(linked.map(item => item.speciesId))].map(id => ({ species: speciesById.get(id)!, evidence: linked.filter(item => item.speciesId === id) }));
   const listed = data.compounds.filter(item => normalize([item.name, item.chemicalClass, ...item.synonyms].join(" ")).includes(normalize(query)))
     .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
@@ -33,7 +31,7 @@ export function EvidenceMap({ data, query, onSpecies }: { data: Catalog; query: 
     <div className="panel evidence-map-intro"><h2>O que foi relatado, e onde?</h2><p>As relações com espécies e os efeitos estudados aparecem separados. Uma ocorrência registrada num organismo não demonstra um efeito ao consumi-lo.</p></div>
     {!selected && <div className="panel evidence-discovery">
       <h3>Buscar organismos por composto e efeito</h3>
-      <p>Combine registros do catálogo e exemplos da literatura para investigar uma relação. Cada fonte responde a uma pergunta diferente; os exemplos não são salvos no seu catálogo.</p>
+      <p>Combine registros do catálogo e exemplos da literatura para investigar uma relação. Cada fonte responde a uma pergunta diferente.</p>
       <div className="evidence-discovery-filters">
         <label>Efeito
           <select aria-label="Filtrar por efeito" value={filters.effect} onChange={event => updateFilter("effect", event.target.value as DiscoveryFilters["effect"])}>
@@ -56,7 +54,7 @@ export function EvidenceMap({ data, query, onSpecies }: { data: Catalog; query: 
         <label><input type="checkbox" checked={filters.onlySourced} onChange={event => updateFilter("onlySourced", event.target.checked)} /> Ocorrência revisada e efeito com fonte</label>
       </div>
       <small>“Ficha do RS” usa a seleção da biblioteca, não um levantamento completo do estado. Os exemplos são casos de estudo, não observações de campo nem comprovação de ocorrência no RS.</small>
-      {!filters.onlyRs && !filters.onlySourced && filters.effect === "all" && filters.context === "all" && filters.studyType === "all" && (!query || normalize("Ipomoea violacea").includes(normalize(query))) && <div className="evidence-taxonomy-note">
+      {examples.species.some(item => item.id === "example-ipomoea-violacea") && !filters.onlyRs && !filters.onlySourced && filters.effect === "all" && filters.context === "all" && filters.studyType === "all" && (!query || normalize("Ipomoea violacea").includes(normalize(query))) && <div className="evidence-taxonomy-note">
         <span className="badge">EXEMPLO · IDENTIDADE TAXONÔMICA</span><strong><em>Ipomoea violacea</em> ≠ <em>Ipomoea tricolor</em></strong>
         <p>O nome <em>I. violacea</em> foi aplicado incorretamente à <em>I. tricolor</em> em parte da literatura. O exemplo não atribui alcaloides ergolínicos à verdadeira <em>I. violacea</em>.</p>
         <a href={ipomoeaTaxonomySource.url} target="_blank" rel="noreferrer">{ipomoeaTaxonomySource.title} <ArrowUpRight size={12} /></a>

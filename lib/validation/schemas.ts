@@ -296,7 +296,13 @@ export type Catalog = {
   evidence: Evidence[];
   discoveries: Discovery[];
   notes: Note[];
+  curatedExamples?: { species: Species[]; compounds: Compound[]; evidence: Evidence[] };
   plantnetConfigured: boolean;
   passwordConfigured: boolean;
   storageMode: "local" | "supabase";
 };
+export const curatedExamplesSchema = z.object({
+  species: z.array(speciesSchema),
+  compounds: z.array(compoundSchema),
+  evidence: z.array(evidenceSchema),
+});
