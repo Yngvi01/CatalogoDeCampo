@@ -89,7 +89,7 @@ export const notes = sqliteTable("notes", {
   data: text("data", { mode: "json" }).$type<Note>().notNull(),
 });
 
-// Read-only reference set, separate from the user's catalog and portable backup.
+// Legacy table retained for rolling deployments; migration 0005 removes its demo row.
 export const curatedExamples = sqliteTable("curated_examples", {
   id: text("id").primaryKey(),
   data: text("data", { mode: "json" }).notNull(),

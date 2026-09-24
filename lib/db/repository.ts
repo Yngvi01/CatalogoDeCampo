@@ -1,7 +1,6 @@
 import { cloud, query, transaction } from "./index";
 import {
   exportDataSchema,
-  curatedExamplesSchema,
   type ExportData,
   type Observation,
   type Species,
@@ -95,13 +94,6 @@ export async function nextCode() {
 }
 export async function catalog() {
   const data = await snapshot();
-  const [exampleRow] = await query<{ data: string | unknown }>(
-    "SELECT data FROM curated_examples WHERE id = $1",
-    ["research"],
-  );
-  const curatedExamples = exampleRow
-    ? curatedExamplesSchema.parse(typeof exampleRow.data === "string" ? JSON.parse(exampleRow.data) : exampleRow.data)
-    : undefined;
   return {
     species: data.species,
     observations: data.observations
@@ -115,7 +107,6 @@ export async function catalog() {
     evidence: data.evidence,
     discoveries: data.discoveries,
     notes: data.notes,
-    curatedExamples,
     plantnetConfigured: !!process.env.PLANTNET_API_KEY,
     passwordConfigured: !!process.env.CAMPO_PASSWORD,
     storageMode: cloud ? "supabase" : "local",

@@ -2,7 +2,6 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import type { Catalog, Compound, Evidence, Species } from "../lib/validation/schemas";
 import { discoverEvidenceRelations, type DiscoveryFilters } from "../features/research/evidence-discovery";
-import { curatedExamples } from "../features/research/curated-examples";
 
 const species = (id: string, scientificName: string): Species => ({
   id, scientificName, acceptedName: "", commonNames: [], synonyms: [], group: "plant", genus: "", family: "",
@@ -45,16 +44,4 @@ test("busca cruzada separa ocorrência revisada de anotação pessoal e respeita
   assert.equal(discoverEvidenceRelations(catalog, { ...filters, onlyRs: true }).length, 1);
   assert.equal(discoverEvidenceRelations(catalog, { ...filters, onlySourced: true }).length, 1);
   assert.equal(discoverEvidenceRelations(catalog, { ...filters, query: "Ilex" }).length, 1);
-});
-
-test("exemplos distinguem fungo, lacunas e a identificação taxonômica de Ipomoea", () => {
-  const all = discoverEvidenceRelations(curatedExamples, filters);
-  assert.equal(all.length, 4);
-  assert.equal(all.find(item => item.species.scientificName === "Amanita muscaria")?.species.group, "fungus");
-  assert.equal(all.find(item => item.compound.id === "example-galactomannan")?.hasBothSources, false);
-  assert.equal(all.some(item => item.species.scientificName === "Ipomoea violacea"), false);
-  assert.equal(curatedExamples.species.find(item => item.scientificName === "Ipomoea violacea")?.notes.includes("I. tricolor"), true);
-  assert.deepEqual(discoverEvidenceRelations(curatedExamples, { ...filters, effect: "sedative" }).map(item => item.species.scientificName), ["Amanita muscaria"]);
-  assert.deepEqual(discoverEvidenceRelations(curatedExamples, { ...filters, effect: "psychedelic", studyType: "human" }).map(item => item.compound.id), ["example-dmt"]);
-  assert.deepEqual(discoverEvidenceRelations(curatedExamples, { ...filters, onlyRs: true }).map(item => item.compound.id).sort(), ["example-dmt", "example-galactomannan"]);
 });

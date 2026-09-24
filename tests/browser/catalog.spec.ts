@@ -313,15 +313,19 @@ test("guia de fotos e comparação preservam seleção e não salvam a consulta"
   await page.goto("/");
   await page.getByLabel("Senha").fill("campo-test-only");
   await page.getByRole("button", { name: "Entrar no catálogo" }).click();
-  const examples = page.getByRole("region", { name: "Exemplos visuais de cards de observação" });
-  await expect(examples.getByRole("article")).toHaveCount(3);
-  await expect(examples.getByText("Mimosa scabrella")).toBeVisible();
+  await expect(page.getByRole("region", { name: "Exemplos visuais de cards do catálogo" })).toHaveCount(0);
+  await page.getByRole("button", { name: "Catálogo", exact: true }).click();
+  const examples = page.getByRole("region", { name: "Exemplos visuais de cards do catálogo" });
+  await expect(examples.getByRole("article")).toHaveCount(4);
+  for (const name of ["Ipomoea violacea", "Casearia sylvestris", "Mimosa scabrella", "Amanita muscaria"])
+    await expect(examples.getByRole("heading", { name })).toBeVisible();
   await examples.locator("img").first().scrollIntoViewIfNeeded();
   await expect.poll(() => examples.locator("img").first().evaluate(image => (image as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
   const before = await (await page.request.get("/api/catalog")).json();
+  await page.getByRole("button", { name: "Identificar", exact: true }).click();
   await page.getByRole("button", { name: "Nova observação", exact: true }).click();
   const dialog = page.getByRole("dialog");
-  await expect(dialog.getByText("Apenas prévia visual; não será enviada nem salva.", { exact: false })).toBeVisible();
+  await expect(dialog.locator(".upload-example")).toHaveCount(0);
   await expect(dialog.getByRole("region", { name: "Como fotografar para identificar" })).toBeVisible();
   const image = await sharp({ create: { width: 300, height: 200, channels: 3, background: "#698448" } }).png().toBuffer();
   await dialog.locator("input[type=file][multiple]").setInputFiles([

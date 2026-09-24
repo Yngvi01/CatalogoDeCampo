@@ -18,7 +18,6 @@ test("explora planta e composto com fonte, filtro do RS e efeito separado", asyn
   await page.getByLabel("Senha").fill("campo-test-only");
   await page.getByRole("button", { name: "Entrar no catálogo" }).click();
   await page.getByRole("button", { name: "Pesquisa", exact: true }).click();
-  await expect(page.getByRole("button", { name: /Ver 4 exemplos da literatura no mapa/ })).toBeVisible();
   const explorer = page.getByRole("region", { name: "Explorar substâncias em plantas" });
   await explorer.getByRole("combobox", { name: "Nome científico da planta" }).fill("Ilex paraguariensis");
   await explorer.getByRole("button", { name: "Buscar relações" }).click();
@@ -39,17 +38,11 @@ test("explora planta e composto com fonte, filtro do RS e efeito separado", asyn
   await expect(pending.getByText("Nenhuma relação aguardando revisão.")).toBeVisible();
   await page.getByRole("button", { name: "Mapa de evidências" }).click();
   const evidenceMap = page.getByRole("region", { name: "Mapa de evidências por composto" });
-  await expect(evidenceMap.getByText("EXEMPLO · IDENTIDADE TAXONÔMICA")).toBeVisible();
-  await expect(evidenceMap.locator(".evidence-index-card")).toHaveCount(5);
+  await expect(evidenceMap.locator(".evidence-index-card")).toHaveCount(1);
   await expect(evidenceMap.getByText("Nenhum composto corresponde à busca.")).toHaveCount(0);
   await evidenceMap.getByRole("combobox", { name: "Filtrar por efeito" }).selectOption("psychedelic");
-  await expect(evidenceMap.locator(".evidence-relation").filter({ hasText: "Mimosa scabrella" }).getByText("N,N-dimetiltriptamina (DMT)")).toBeVisible();
+  await expect(evidenceMap.getByText("0 relações encontradas")).toBeVisible();
   await evidenceMap.getByRole("combobox", { name: "Filtrar por efeito" }).selectOption("all");
-  const amanitaExample = evidenceMap.locator(".evidence-relation").filter({ hasText: "Amanita muscaria" });
-  await expect(amanitaExample.getByText("FUNGO")).toBeVisible();
-  await amanitaExample.getByRole("button", { name: "Abrir mapa" }).click();
-  await expect(evidenceMap.getByRole("heading", { name: "muscimol" })).toBeVisible();
-  await evidenceMap.getByRole("button", { name: "Todos os compostos" }).click();
   await expect(evidenceMap.locator(".evidence-relation").filter({ hasText: "Ilex paraguariensis" }).getByText("EVIDÊNCIA INCOMPLETA")).toBeVisible();
   await evidenceMap.getByRole("button", { name: /caffeine/ }).click();
   await expect(evidenceMap.getByRole("heading", { name: "Ilex paraguariensis" })).toBeVisible();
@@ -68,7 +61,7 @@ test("explora planta e composto com fonte, filtro do RS e efeito separado", asyn
   await expect(evidenceMap.locator(".evidence-relation").filter({ hasText: "Ilex paraguariensis" }).getByText("OCORRÊNCIA + EFEITO")).toBeVisible();
   await evidenceMap.getByRole("combobox", { name: "Filtrar por efeito" }).selectOption("sedative");
   await evidenceMap.getByRole("checkbox", { name: "Ocorrência revisada e efeito com fonte" }).check();
-  await expect(evidenceMap.getByText("2 relações encontradas")).toBeVisible();
+  await expect(evidenceMap.getByText("1 relação encontrada")).toBeVisible();
   await evidenceMap.getByRole("combobox", { name: "Filtrar por tipo de estudo" }).selectOption("human");
   await expect(evidenceMap.getByText("0 relações encontradas")).toBeVisible();
   await evidenceMap.getByRole("combobox", { name: "Filtrar por tipo de estudo" }).selectOption("publication");

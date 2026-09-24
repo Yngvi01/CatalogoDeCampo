@@ -40,7 +40,7 @@ import { BackupPanel } from "@/features/backup/backup-panel";
 import { NotebookPanel } from "@/features/notebook/notebook-panel";
 import { LibraryPanel } from "@/features/library/library-panel";
 import { ResearchPanel } from "@/features/research/research-panel";
-import { IdentificationExampleCards } from "@/features/identification/example-cards";
+import { CatalogExampleCards } from "@/features/catalog/example-cards";
 import type { Catalog, Species } from "@/lib/validation/schemas";
 import { normalize, dateLabel, statuses, distanceKm } from "@/lib/utils";
 const FieldMap = dynamic(() => import("@/features/map/field-map"), {
@@ -778,7 +778,7 @@ export function CampoApp() {
                   )}
                 </>
               )}
-              {area === "identify" && !hasFilters && <IdentificationExampleCards onNew={() => setNewOpen(true)} />}
+              {area === "catalog" && !hasFilters && <CatalogExampleCards onNew={() => setNewOpen(true)} view={view as "grid" | "list"} />}
               {area === "library" && <LibraryPanel query={query} />}
               {area === "notebook" && (
                 <NotebookPanel notes={data.notes} query={query} refresh={refresh} />
