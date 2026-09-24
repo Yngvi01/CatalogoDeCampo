@@ -226,33 +226,81 @@ test("caderno: escrever, reler, buscar, editar, arquivar e recuperar páginas", 
   expect(errors).toEqual([]);
 });
 
-test("identificação consulta antes de salvar e permite guardar a observação sem fotos", async ({ page }) => {
+test("identificação consulta antes de salvar e permite guardar a observação sem fotos", async ({
+  page,
+}) => {
   await page.goto("/");
   await page.getByLabel("Senha").fill("campo-test-only");
   await page.getByRole("button", { name: "Entrar no catálogo" }).click();
-  await page.getByRole("button", { name: "Nova observação", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Nova observação", exact: true })
+    .click();
   const before = await (await page.request.get("/api/catalog")).json();
   const dialog = page.getByRole("dialog");
   await dialog.getByRole("button", { name: "Fungo", exact: true }).click();
-  const buffer = await sharp({ create: { width: 80, height: 80, channels: 3, background: "#738453" } }).png().toBuffer();
+  const buffer = await sharp({
+    create: { width: 80, height: 80, channels: 3, background: "#738453" },
+  })
+    .png()
+    .toBuffer();
   await dialog.locator("input[type=file][multiple]").setInputFiles([
     { name: "fungo1.png", mimeType: "image/png", buffer },
     { name: "fungo2.png", mimeType: "image/png", buffer },
   ]);
-  await dialog.getByRole("button", { name: "Identificar fotos", exact: true }).click();
-  await expect(dialog.getByRole("heading", { name: "Quais fotos deseja guardar?" })).toBeVisible();
-  await expect(dialog.getByRole("checkbox", { name: "Guardar foto 1" })).not.toBeChecked();
-  await expect(dialog.getByRole("checkbox", { name: "Guardar foto 2" })).not.toBeChecked();
+  await dialog
+    .getByRole("button", { name: "Identificar fotos", exact: true })
+    .click();
+  await expect(
+    dialog.getByRole("heading", { name: "Quais fotos deseja guardar?" }),
+  ).toBeVisible();
+  await expect(
+    dialog.getByRole("checkbox", { name: "Guardar foto 1" }),
+  ).not.toBeChecked();
+  await expect(
+    dialog.getByRole("checkbox", { name: "Guardar foto 2" }),
+  ).not.toBeChecked();
   await page.setViewportSize({ width: 390, height: 844 });
-  await expect(dialog.getByRole("checkbox", { name: "Guardar foto 2" })).toBeVisible();
-  expect(await dialog.evaluate((el) => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
+  await expect(
+    dialog.getByRole("checkbox", { name: "Guardar foto 2" }),
+  ).toBeVisible();
+  expect(
+    await dialog.evaluate((el) => el.scrollWidth <= el.clientWidth + 1),
+  ).toBe(true);
   const afterPreview = await (await page.request.get("/api/catalog")).json();
   expect(afterPreview.observations.length).toBe(before.observations.length);
-  const response = page.waitForResponse((r) => r.url().endsWith("/api/identification/save"));
-  await dialog.getByRole("button", { name: "Salvar observação sem fotos", exact: true }).click();
+  const response = page.waitForResponse((r) =>
+    r.url().endsWith("/api/identification/save"),
+  );
+  await dialog
+    .getByRole("button", { name: "Salvar observação sem fotos", exact: true })
+    .click();
   const saved = await (await response).json();
-  await expect(dialog.getByText("Nenhuma foto foi guardada nesta observação.")).toBeVisible();
-  const detail = await (await page.request.get(`/api/observations/${saved.observation.id}`)).json();
+  await expect(
+    dialog.getByText("Nenhuma foto foi guardada nesta observação."),
+  ).toBeVisible();
+  const detail = await (
+    await page.request.get(`/api/observations/${saved.observation.id}`)
+  ).json();
   expect(detail.photos).toEqual([]);
   expect(detail.identifications[0].imageIds).toEqual([]);
+  await dialog
+    .getByRole("button", { name: "Excluir identificação", exact: true })
+    .click();
+  await dialog.getByRole("button", { name: "Cancelar exclusão" }).click();
+  expect(
+    (await (await page.request.get("/api/catalog")).json()).observations.some(
+      (o: { id: string }) => o.id === saved.observation.id,
+    ),
+  ).toBe(true);
+  await dialog
+    .getByRole("button", { name: "Excluir identificação", exact: true })
+    .click();
+  await dialog.getByRole("button", { name: "Excluir definitivamente" }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await page.reload();
+  expect(
+    (await (await page.request.get("/api/catalog")).json()).observations.some(
+      (o: { id: string }) => o.id === saved.observation.id,
+    ),
+  ).toBe(false);
 });

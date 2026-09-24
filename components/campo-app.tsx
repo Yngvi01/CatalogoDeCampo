@@ -796,6 +796,21 @@ export function CampoApp() {
           catalog={data}
           onClose={() => setObservationId(null)}
           onChanged={refresh}
+          onDeleted={async (message) => {
+            setObservationId(null);
+            setData((current) =>
+              current
+                ? {
+                    ...current,
+                    observations: current.observations.filter(
+                      (o) => o.id !== observationId,
+                    ),
+                  }
+                : current,
+            );
+            setNotice(message);
+            await refresh();
+          }}
           onSpecies={(id) => {
             setObservationId(null);
             setSpeciesId(id);

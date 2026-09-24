@@ -2,6 +2,7 @@
 import { useEffect, useState, useCallback } from "react";
 import {
   ScanLine,
+  Trash2,
   Check,
   ArrowUpRight,
   MapPin,
@@ -52,14 +53,17 @@ export function ObservationDetail({
   catalog,
   onClose,
   onChanged,
+  onDeleted,
   onSpecies,
 }: {
   id: string;
   catalog: Catalog;
   onClose: () => void;
   onChanged: () => Promise<void>;
+  onDeleted: (message: string) => Promise<void>;
   onSpecies: (id: string) => void;
 }) {
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [data, setData] = useState<Detail | null>(null),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(""),
@@ -114,6 +118,57 @@ export function ObservationDetail({
         <Loading />
       ) : (
         <>
+          {confirmDelete && (
+            <section
+              className="panel"
+              role="alertdialog"
+              aria-labelledby="delete-observation-title"
+              aria-describedby="delete-observation-description"
+              style={{ padding: 20, marginBottom: 20 }}
+            >
+              <h2 id="delete-observation-title">Excluir {data.code}?</h2>
+              <p id="delete-observation-description">
+                Esta ação remove a observação, suas consultas de identificação,
+                histórico e fotos guardadas. A ficha da espécie e as outras
+                observações permanecem. Não é possível desfazer; backups
+                anteriores não serão alterados.
+              </p>
+              <div className="actions">
+                <Button
+                  variant="outline"
+                  disabled={!!busy}
+                  onClick={() => setConfirmDelete(false)}
+                >
+                  Cancelar exclusão
+                </Button>
+                <Button
+                  variant="destructive"
+                  disabled={!!busy}
+                  onClick={async () => {
+                    setBusy("delete");
+                    setError("");
+                    try {
+                      const result = await api<{ pendingFiles: number }>(
+                        `observations/${id}`,
+                        { ...send({ confirm: true }), method: "DELETE" },
+                      );
+                      await onDeleted(
+                        result.pendingFiles
+                          ? "Identificação excluída. A remoção de alguns arquivos está pendente e será tentada novamente ao carregar o catálogo."
+                          : "Identificação e fotos excluídas.",
+                      );
+                    } catch (error) {
+                      setError((error as Error).message);
+                    } finally {
+                      setBusy("");
+                    }
+                  }}
+                >
+                  {busy === "delete" ? "Excluindo…" : "Excluir definitivamente"}
+                </Button>
+              </div>
+            </section>
+          )}
           <div className="observation-layout">
             <div>
               <div className="detail-photo">
@@ -194,6 +249,14 @@ export function ObservationDetail({
               </dl>
               {data.notes && <p className="notes">{data.notes}</p>}
               <div className="actions">
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  disabled={!!busy}
+                  onClick={() => setConfirmDelete(true)}
+                >
+                  <Trash2 size={15} /> Excluir identificação
+                </Button>
                 <Button
                   variant="outline"
                   size="sm"

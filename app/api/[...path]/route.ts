@@ -35,10 +35,9 @@ async function handle(request: NextRequest, context: Context) {
   try {
     // Importar aqui permite responder JSON mesmo se o banco falhar ao iniciar.
     const handlers = await import("@/lib/server/api-handlers");
-    return await handlers[request.method as "GET" | "POST" | "PATCH"](
-      request,
-      context,
-    );
+    return await handlers[
+      request.method as "GET" | "POST" | "PATCH" | "DELETE"
+    ](request, context);
   } catch {
     // Não expor caminhos locais, credenciais ou detalhes internos na resposta.
     return failure(
@@ -51,3 +50,5 @@ async function handle(request: NextRequest, context: Context) {
 export const GET = handle;
 export const POST = handle;
 export const PATCH = handle;
+
+export const DELETE = handle;

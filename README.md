@@ -209,3 +209,9 @@ Uploads abandonados e cópias temporárias de exportação com mais de 24 horas 
 A consulta inicial usa JPEGs reduzidos no navegador (até 650 KB por foto), com remoção de EXIF também no servidor. Não cria observação, imagens, arquivos temporários no Storage nem cache visual. O Pl@ntNet recebe as cópias para análise; fungos usam assistência contextual, sem análise visual. Os originais permanecem no navegador até a escolha explícita de retenção. Fechar/descartar a consulta não salva nada.
 
 O resultado assinado expira em uma hora. Ao salvar, apenas as fotos selecionadas são transferidas e relacionadas ao registro; também é possível salvar os dados e candidatos com zero imagens. Se a consulta automática falhar, a tela mantém as fotos e permite repetir ou continuar explicitamente com identificação manual. Para este fluxo, use JPEG, PNG ou WebP que o navegador consiga abrir.
+
+### Excluir uma identificação salva
+
+Abra a observação, clique em **Excluir identificação** e confirme **Excluir definitivamente**. A exclusão remove a observação, consultas, histórico e fotos vinculadas. A ficha da espécie, suas pesquisas/evidências e outras observações são preservadas. Arquivos compartilhados por outro registro não são apagados. Backups já exportados não são alterados.
+
+O banco registra a limpeza de arquivos antes de remover o registro. Se o disco ou Storage estiver indisponível, a interface informa a pendência e tenta novamente ao carregar o catálogo. Nenhum registro é excluído apenas ao abrir ou cancelar a confirmação.

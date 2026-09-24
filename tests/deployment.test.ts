@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { NextRequest } from "next/server";
-import { GET, POST, PATCH } from "../app/api/[...path]/route";
+import { GET, POST, PATCH, DELETE } from "../app/api/[...path]/route";
 import { token } from "../lib/auth";
 
 test("Vercel responde JSON sem inicializar armazenamento local e preserva autorização", async () => {
@@ -18,7 +18,12 @@ test("Vercel responde JSON sem inicializar armazenamento local e preserva autori
       context,
     );
     assert.equal(unauthorized.status, 401);
-    for (const [method, handler] of Object.entries({ GET, POST, PATCH })) {
+    for (const [method, handler] of Object.entries({
+      GET,
+      POST,
+      PATCH,
+      DELETE,
+    })) {
       const response = await handler(
         new NextRequest("https://campo.example/api/catalog", {
           method,

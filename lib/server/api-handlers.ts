@@ -1,4 +1,8 @@
 import {
+  deleteObservation,
+  cleanupDeletedPhotos,
+} from "@/features/observations/delete";
+import {
   previewIdentification,
   saveIdentifiedObservation,
   readReceipt,
@@ -128,7 +132,10 @@ export async function GET(request: NextRequest, ctx: Context) {
         direct: cloud,
         importMaxBytes: cloud ? 50 * 1024 * 1024 : 256 * 1024 * 1024,
       });
-    if (area === "catalog") return json(await catalog());
+    if (area === "catalog") {
+      await cleanupDeletedPhotos();
+      return json(await catalog());
+    }
     if (area === "reflections") return json(await getReflections());
     if (area === "observations" && id) return json(await observationDetail(id));
     if (area === "images" && id) {
@@ -427,5 +434,18 @@ export async function PATCH(request: NextRequest, ctx: Context) {
     });
   } catch (e) {
     return failure(e);
+  }
+}
+
+export async function DELETE(request: NextRequest, ctx: Context) {
+  try {
+    authorize(request);
+    const [area, id, action] = (await ctx.params).path;
+    if (area !== "observations" || !id || action)
+      return json({ error: "Rota não encontrada." }, 404);
+    z.object({ confirm: z.literal(true) }).parse(await limitedJson(request));
+    return json(await deleteObservation(id));
+  } catch (error) {
+    return failure(error);
   }
 }

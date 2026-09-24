@@ -37,12 +37,13 @@ export async function objectExists(key: string): Promise<boolean> {
       throw error;
     }
   }
-  const { data, error } = await storage().exists(key);
+  const { error } = await storage().info(key);
+  if (error && String((error as { statusCode?: string }).statusCode) === "404") return false;
   if (error)
     throw new Error(
       "Não foi possível verificar o arquivo no Supabase Storage.",
     );
-  return data;
+  return true;
 }
 export async function writeObject(
   key: string,
