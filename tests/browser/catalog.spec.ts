@@ -125,7 +125,7 @@ test("caderno: escrever, reler, buscar, editar, arquivar e recuperar páginas", 
   await page.goto("/");
   await page.getByLabel("Senha").fill("campo-test-only");
   await page.getByRole("button", { name: "Entrar no catálogo" }).click();
-  await page.getByRole("button", { name: "Pesquisa", exact: true }).click();
+  await page.getByRole("button", { name: "Meu caderno", exact: true }).click();
   const notebook = page.getByRole("region", { name: "Caderno de anotações" });
   await notebook
     .getByRole("button", { name: "Nova página", exact: true })
@@ -146,7 +146,7 @@ test("caderno: escrever, reler, buscar, editar, arquivar e recuperar páginas", 
     reader.getByRole("heading", { name: "Percepção e árvores" }),
   ).toBeVisible();
   await page.reload();
-  await page.getByRole("button", { name: "Pesquisa", exact: true }).click();
+  await page.getByRole("button", { name: "Meu caderno", exact: true }).click();
   await expect(reader).toContainText(
     "Uma anotação pessoal, sem conclusão definitiva.",
   );

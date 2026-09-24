@@ -75,7 +75,7 @@ Chaves, `.env` e senha não são exportados. Não use prefixo `NEXT_PUBLIC_` par
 - Compare fontes e registre uma identificação provável, identificada pelo usuário ou confirmada externamente. A última opção exige uma justificativa/fonte.
 - **Catálogo:** acompanhe a ficha da espécie e seus diferentes encontros. Registre dados pessoais e evidências, com origem e tipo claramente separados.
 - **Campo:** veja observações com coordenadas no mapa e abra o registro pela lista ou marcador.
-- **Pesquisa → Caderno:** escreva páginas com título, texto e etiquetas, releia pelo índice, exporte em TXT ou arquive para consultar depois.
+- **Meu caderno:** escreva páginas com título, texto e etiquetas, releia pelo índice, exporte em TXT ou arquive para consultar depois.
 - **Pesquisa → Descobertas:** investigue uma espécie na Europe PMC, revise descobertas, cadastre compostos e incorpore evidências deliberadamente.
 - **Dados e backup:** exporte o ZIP completo regularmente.
 
@@ -190,7 +190,7 @@ O backend busca um lote de frases e o mantém no cache do banco por 24 horas. Ca
 
 ## Caderno de anotações
 
-Em **Pesquisa → Caderno**, cada anotação é uma página com título, texto livre, etiquetas e datas de criação/edição. O índice permite alternar páginas em uma leitura semelhante a um livro. A busca do caderno e a busca global nessa área ignoram acentos e maiúsculas, pesquisando títulos, textos e etiquetas.
+Em **Meu caderno**, cada anotação é uma página com título, texto livre, etiquetas e datas de criação/edição. O índice permite alternar páginas em uma leitura semelhante a um livro. A busca do caderno e a busca global nessa área ignoram acentos e maiúsculas, pesquisando títulos, textos e etiquetas.
 
 Use **Salvar página** (ou Ctrl/⌘ S) para gravar no banco configurado. A edição avisa antes de descartar mudanças ao fechar o editor ou sair da página. Não há salvamento automático nem gravação offline: se o envio falhar, mantenha o editor aberto ou copie o texto antes de sair. Alterações concorrentes em outra janela são bloqueadas para não sobrescrever a versão mais recente.
 

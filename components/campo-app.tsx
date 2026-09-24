@@ -22,6 +22,7 @@ import {
   ChevronRight,
   ShieldCheck,
   BookOpen,
+  NotebookPen,
   LogOut,
   X,
 } from "lucide-react";
@@ -33,6 +34,7 @@ import { NewObservation } from "@/features/observations/new-observation";
 import { ObservationDetail } from "@/features/observations/observation-detail";
 import { SpeciesDetail } from "@/features/species/species-detail";
 import { BackupPanel } from "@/features/backup/backup-panel";
+import { NotebookPanel } from "@/features/notebook/notebook-panel";
 import { ResearchPanel } from "@/features/research/research-panel";
 import type { Catalog, Species } from "@/lib/validation/schemas";
 import { normalize, dateLabel, statuses, distanceKm } from "@/lib/utils";
@@ -40,11 +42,12 @@ const FieldMap = dynamic(() => import("@/features/map/field-map"), {
   ssr: false,
   loading: () => <Loading />,
 });
-type Area = "identify" | "field" | "catalog" | "research";
+type Area = "identify" | "field" | "catalog" | "research" | "notebook";
 const navigation = [
   { id: "identify" as const, label: "Identificar", icon: ScanLine },
   { id: "field" as const, label: "Campo", icon: Map },
   { id: "catalog" as const, label: "Catálogo", icon: Library },
+  { id: "notebook" as const, label: "Meu caderno", icon: NotebookPen },
   { id: "research" as const, label: "Pesquisa", icon: FlaskConical },
 ];
 export function CampoApp() {
@@ -282,7 +285,9 @@ export function CampoApp() {
                     ? "SEUS ENCONTROS NO TERRITÓRIO"
                     : area === "catalog"
                       ? "CONHECIMENTO QUE CRIA RAÍZES"
-                      : "DAS OBSERVAÇÕES ÀS EVIDÊNCIAS"}
+                      : area === "notebook"
+                        ? "SEU LIVRO EM CONSTRUÇÃO"
+                        : "DAS OBSERVAÇÕES ÀS EVIDÊNCIAS"}
               </span>
               <h1>
                 {area === "identify"
@@ -291,7 +296,9 @@ export function CampoApp() {
                     ? "Seu caderno de campo."
                     : area === "catalog"
                       ? "Um catálogo em crescimento."
-                      : "Siga as perguntas."}
+                      : area === "notebook"
+                        ? "Meu caderno"
+                        : "Siga as perguntas."}
               </h1>
               <p>
                 {area === "identify"
@@ -300,7 +307,9 @@ export function CampoApp() {
                     ? "Explore onde e quando você encontrou cada organismo."
                     : area === "catalog"
                       ? "Espécies, histórias e detalhes que você decidiu preservar."
-                      : "Literatura, compostos e conexões — com a fonte sempre por perto."}
+                      : area === "notebook"
+                        ? "Um espaço para suas leituras, ideias e anotações. Escreva livremente e volte quando quiser."
+                        : "Literatura, compostos e conexões — com a fonte sempre por perto."}
               </p>
             </div>
             <Button onClick={() => setNewOpen(true)}>
@@ -390,7 +399,7 @@ export function CampoApp() {
                   </div>
                 </>
               )}
-              {area !== "research" && (
+              {area !== "research" && area !== "notebook" && (
                 <>
                   <div className="section-heading">
                     <div>
@@ -734,6 +743,9 @@ export function CampoApp() {
                     />
                   )}
                 </>
+              )}
+              {area === "notebook" && (
+                <NotebookPanel notes={data.notes} query={query} refresh={refresh} />
               )}
               {area === "research" && (
                 <ResearchPanel
