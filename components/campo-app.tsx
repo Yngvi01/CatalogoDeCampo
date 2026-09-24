@@ -209,7 +209,10 @@ export function CampoApp() {
             <Database size={17} /> Dados e backup <ArrowUpRight size={14} />
           </button>
           <div className="local-status">
-            <span /> Armazenamento local
+            <span />{" "}
+            {data?.storageMode === "supabase"
+              ? "Salvo na nuvem"
+              : "Armazenamento local"}
           </div>
           <small>Seu catálogo. Seus dados.</small>
         </div>

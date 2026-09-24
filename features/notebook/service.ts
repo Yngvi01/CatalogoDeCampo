@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { sqlite } from "@/lib/db";
+import { transaction } from "@/lib/db";
 import { get, put } from "@/lib/db/repository";
 import { normalize } from "@/lib/utils";
 import {
@@ -18,7 +18,7 @@ function uniqueTags(tags: string[]) {
   );
 }
 
-export function createNote(input: unknown): Note {
+export async function createNote(input: unknown): Promise<Note> {
   const value = noteInputSchema.parse(input);
   const now = new Date().toISOString();
   const note = noteSchema.parse({
@@ -29,14 +29,14 @@ export function createNote(input: unknown): Note {
     createdAt: now,
     updatedAt: now,
   });
-  put("notes", note);
+  await put("notes", note);
   return note;
 }
 
-export function updateNote(id: string, input: unknown): Note {
+export async function updateNote(id: string, input: unknown): Promise<Note> {
   const { expectedUpdatedAt, ...value } = noteUpdateSchema.parse(input);
-  return sqlite.transaction(() => {
-    const current = get<Note>("notes", id);
+  return await transaction(async () => {
+    const current = await get<Note>("notes", id);
     if (!current) throw new Error("Página não encontrada.");
     if (current.updatedAt !== expectedUpdatedAt) {
       throw new NoteConflictError(
@@ -51,7 +51,7 @@ export function updateNote(id: string, input: unknown): Note {
         Math.max(Date.now(), Date.parse(current.updatedAt) + 1),
       ).toISOString(),
     });
-    put("notes", note);
+    await put("notes", note);
     return note;
-  })();
+  });
 }

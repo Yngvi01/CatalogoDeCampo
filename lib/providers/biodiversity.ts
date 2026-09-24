@@ -250,10 +250,10 @@ export const fungi: IdentificationProvider = {
   async identify(o, _photos, refresh) {
     if (o.group !== "fungus")
       throw new Error("Provider exclusivo para fungos.");
-    const observations = list<Observation>("observations").filter(
+    const observations = (await list<Observation>("observations")).filter(
       (p) => p.id !== o.id && p.group === "fungus" && p.speciesId,
     );
-    const species = list<Species>("species");
+    const species = await list<Species>("species");
     const matches = observations
       .map((p) => ({
         p,
@@ -316,7 +316,11 @@ export const fungi: IdentificationProvider = {
       try {
         const result = await cached(
           "fungi-nearby",
-          { lat: o.latitude, lon: o.longitude, month: params.get("month") },
+          {
+            lat: o.latitude,
+            lon: o.longitude,
+            month: await params.get("month"),
+          },
           () =>
             fetchJson<{
               results: {

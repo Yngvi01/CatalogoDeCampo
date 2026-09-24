@@ -12,7 +12,7 @@ const setup = Promise.all([
   import("../features/notebook/service"),
   import("../features/backup/service"),
   import("../lib/db/repository"),
-  import("../lib/db"),
+  import("../lib/db/local"),
 ]);
 after(async () => {
   (await setup)[3].sqlite.close();
@@ -21,64 +21,66 @@ after(async () => {
 
 test("Caderno preserva texto e etiquetas e impede sobrescrita por outra janela", async () => {
   const [notes, , repo] = await setup;
-  assert.throws(() => notes.createNote({ title: " ", content: "Rascunho" }));
-  const created = notes.createNote({
+  await assert.rejects(
+    async () => await notes.createNote({ title: " ", content: "Rascunho" }),
+  );
+  const created = await notes.createNote({
     title: "Árvore e percepção",
     content: "Uma primeira ideia.\n\nOutra pergunta.",
     tags: ["Filosofia", "filosófia", "campo"],
   });
   assert.deepEqual(created.tags, ["Filosofia", "campo"]);
-  const edited = notes.updateNote(created.id, {
+  const edited = await notes.updateNote(created.id, {
     title: "Uma leitura do campo",
     expectedUpdatedAt: created.updatedAt,
   });
   assert.equal(edited.content, created.content);
   assert.deepEqual(edited.tags, created.tags);
   assert.notEqual(edited.updatedAt, created.updatedAt);
-  assert.throws(
-    () =>
-      notes.updateNote(created.id, {
+  await assert.rejects(
+    async () =>
+      await notes.updateNote(created.id, {
         content: "Texto desatualizado",
         expectedUpdatedAt: created.updatedAt,
       }),
     notes.NoteConflictError,
   );
-  const archived = notes.updateNote(created.id, {
+  const archived = await notes.updateNote(created.id, {
     archived: true,
     expectedUpdatedAt: edited.updatedAt,
   });
   assert.deepEqual(archived.tags, created.tags);
   assert.equal(archived.content, created.content);
-  const restored = notes.updateNote(created.id, {
+  const restored = await notes.updateNote(created.id, {
     archived: false,
     expectedUpdatedAt: archived.updatedAt,
   });
   assert.equal(restored.id, created.id);
-  assert.deepEqual(repo.snapshot().notes, [restored]);
+  assert.deepEqual((await repo.snapshot()).notes, [restored]);
 });
 
 test("JSON e ZIP incluem páginas; mesclagem, duplicação e restauração preservam o caderno", async () => {
   const [notes, backup, repo] = await setup;
-  const original = repo.snapshot().notes[0];
-  const json = backup.exportCatalog();
+  const original = (await repo.snapshot()).notes[0];
+  const json = await backup.exportCatalog();
   assert.equal(json.version, 2);
   assert.deepEqual(json.data.notes, [original]);
-  const zip = backup.backup();
-  const preview = backup.previewImport(zip);
+  const zip = await backup.backup();
+  const preview = await backup.previewImport(zip);
   assert.equal(preview.counts.notes, 1);
   assert.equal(preview.existing.notes, 1);
-  backup.importCatalog(zip, "skip", preview.hash);
-  assert.equal(repo.snapshot().notes.length, 1);
-  backup.importCatalog(zip, "new", preview.hash);
-  assert.equal(repo.snapshot().notes.length, 2);
-  assert.notEqual(repo.snapshot().notes[1].id, original.id);
-  assert.equal(repo.snapshot().notes[1].content, original.content);
-  notes.updateNote(original.id, {
+  await backup.importCatalog(zip, "skip", preview.hash);
+  assert.equal((await repo.snapshot()).notes.length, 1);
+  await backup.importCatalog(zip, "new", preview.hash);
+  assert.equal((await repo.snapshot()).notes.length, 2);
+  assert.notEqual((await repo.snapshot()).notes[1].id, original.id);
+  assert.equal((await repo.snapshot()).notes[1].content, original.content);
+  await notes.updateNote(original.id, {
     content: "Alteração após o backup",
     expectedUpdatedAt: original.updatedAt,
   });
-  const restored = backup.importCatalog(zip, "restore", preview.hash);
-  assert.deepEqual(repo.snapshot().notes, [original]);
+  const restored = await backup.importCatalog(zip, "restore", preview.hash);
+  assert.deepEqual((await repo.snapshot()).notes, [original]);
   const recovery = backup.parseImport(
     readFileSync(path.join(temp, "backups", restored.recovery!)),
   );
@@ -88,16 +90,20 @@ test("JSON e ZIP incluem páginas; mesclagem, duplicação e restauração prese
       (note) => note.content === "Alteração após o backup",
     ),
   );
-  const change = backup.exportCatalog();
+  const change = await backup.exportCatalog();
   change.data.notes[0].content = "Importação revisada";
   const bytes = strToU8(JSON.stringify(change));
-  backup.importCatalog(bytes, "update", backup.previewImport(bytes).hash);
-  assert.equal(repo.snapshot().notes[0].content, "Importação revisada");
+  await backup.importCatalog(
+    bytes,
+    "update",
+    (await backup.previewImport(bytes)).hash,
+  );
+  assert.equal((await repo.snapshot()).notes[0].content, "Importação revisada");
 });
 
 test("Backups v1 continuam importáveis; v2 incompleto e versões divergentes são rejeitados", async () => {
   const [, backup, repo] = await setup;
-  const current = backup.exportCatalog();
+  const current = await backup.exportCatalog();
   const { notes: omitted, ...oldData } = current.data;
   assert.equal(omitted.length, 1);
   const old = { ...current, version: 1, data: oldData };
@@ -108,7 +114,7 @@ test("Backups v1 continuam importáveis; v2 incompleto e versões divergentes s�
   assert.throws(() =>
     backup.parseImport(strToU8(JSON.stringify({ ...current, data: oldData }))),
   );
-  const files = unzipSync(backup.backup());
+  const files = unzipSync(await backup.backup());
   const manifest = JSON.parse(strFromU8(files["manifest.json"]));
   manifest.version = 1;
   files["manifest.json"] = strToU8(JSON.stringify(manifest));
@@ -120,12 +126,12 @@ test("Backups v1 continuam importáveis; v2 incompleto e versões divergentes s�
     .digest("hex");
   files["manifest.json"] = strToU8(JSON.stringify(manifest));
   const legacyZip = zipSync(files);
-  const preview = backup.previewImport(legacyZip);
+  const preview = await backup.previewImport(legacyZip);
   assert.equal(preview.counts.notes, 0);
-  backup.importCatalog(legacyZip, "skip", preview.hash);
-  assert.equal(repo.snapshot().notes.length, 1);
-  const result = backup.importCatalog(legacyZip, "restore", preview.hash);
-  assert.equal(repo.snapshot().notes.length, 0);
+  await backup.importCatalog(legacyZip, "skip", preview.hash);
+  assert.equal((await repo.snapshot()).notes.length, 1);
+  const result = await backup.importCatalog(legacyZip, "restore", preview.hash);
+  assert.equal((await repo.snapshot()).notes.length, 0);
   assert.equal(
     backup.parseImport(
       readFileSync(path.join(temp, "backups", result.recovery!)),

@@ -2,18 +2,17 @@
 import { useEffect, useRef } from "react";
 import { X, LoaderCircle } from "lucide-react";
 import { Button } from "./ui/button";
+import { readJsonResponse } from "@/lib/http/response";
 export async function api<T = unknown>(
   url: string,
   options?: RequestInit,
 ): Promise<T> {
   const response = await fetch(`/api/${url}`, options);
-  const data = await response.json();
   if (response.status === 401) {
     location.href = "/login";
     throw new Error("Entre novamente.");
   }
-  if (!response.ok) throw new Error(data.error || "Não foi possível concluir.");
-  return data;
+  return readJsonResponse<T>(response);
 }
 export const send = (value: unknown): RequestInit => ({
   method: "POST",

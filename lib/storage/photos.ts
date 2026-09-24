@@ -1,8 +1,8 @@
 import sharp from "sharp";
 import { createHash, randomUUID } from "node:crypto";
-import { writeFile, unlink, readFile } from "node:fs/promises";
+import { writeObject, readObject, removeObject } from "./objects";
 import path from "node:path";
-import { dataDir } from "../db";
+import { dataDir } from "../db/config";
 import type { Photo } from "../validation/schemas";
 export const imageDir = path.join(dataDir, "images");
 export const maxPhotoBytes = 20 * 1024 * 1024;
@@ -58,15 +58,17 @@ export async function savePhoto(
     .jpeg({ quality: 78 })
     .toBuffer();
   try {
-    await Promise.all([
-      writeFile(path.join(imageDir, original), bytes),
-      writeFile(path.join(imageDir, optimized), opt),
-      writeFile(path.join(imageDir, thumbnail), thumb),
+    const writes = await Promise.allSettled([
+      writeObject(`images/${original}`, bytes, `image/${info.format}`),
+      writeObject(`images/${optimized}`, opt, "image/jpeg"),
+      writeObject(`images/${thumbnail}`, thumb, "image/jpeg"),
     ]);
+    const failed = writes.find((r) => r.status === "rejected");
+    if (failed?.status === "rejected") throw failed.reason;
   } catch (e) {
     await Promise.all(
       [original, optimized, thumbnail].map((n) =>
-        unlink(path.join(imageDir, n)).catch(() => {}),
+        removeObject(`images/${n}`).catch(() => {}),
       ),
     );
     throw e;
@@ -88,12 +90,12 @@ export async function savePhoto(
 export async function removePhoto(photo: Photo) {
   await Promise.all(
     [photo.original, photo.optimized, photo.thumbnail].map((n) =>
-      unlink(path.join(imageDir, n)).catch(() => {}),
+      removeObject(`images/${n}`).catch(() => {}),
     ),
   );
 }
 export async function photoBytes(photo: Photo) {
-  const bytes = await readFile(path.join(imageDir, photo.optimized));
+  const bytes = await readObject(`images/${photo.optimized}`);
   return sharp(bytes, { limitInputPixels: 60_000_000 })
     .rotate()
     .resize({

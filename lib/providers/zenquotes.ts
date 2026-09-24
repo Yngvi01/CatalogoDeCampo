@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { cached } from "./cache";
-import { sqlite } from "../db";
+import { query } from "../db";
 import {
   localReflections,
   type ReflectionsResponse,
@@ -22,15 +22,16 @@ const entrySchema = z.object({
 let pending: Promise<ReflectionsResponse> | undefined;
 let retryAfter = 0;
 
-function fallback(): ReflectionsResponse {
-  const row = sqlite
-    .prepare(
-      "SELECT data FROM cache WHERE provider = ? ORDER BY created_at DESC LIMIT 1",
-    )
-    .get("zenquotes") as { data: string } | undefined;
+async function fallback(): Promise<ReflectionsResponse> {
+  const [row] = await query<{ data: unknown }>(
+    "SELECT data FROM cache WHERE provider = $1 ORDER BY created_at DESC LIMIT 1",
+    ["zenquotes"],
+  ).catch(() => []);
   if (row) {
     try {
-      const result = quotesSchema.safeParse(JSON.parse(row.data));
+      const result = quotesSchema.safeParse(
+        typeof row.data === "string" ? JSON.parse(row.data) : row.data,
+      );
       if (result.success) return { quotes: result.data, source: "zenquotes" };
     } catch {
       /* Cache inválido não impede a abertura da página. */

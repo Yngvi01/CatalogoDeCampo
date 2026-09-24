@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { sqlite } from "../db";
+import { cloud, query as execute } from "../db";
 export async function cached<T>(
   provider: string,
   params: unknown,
@@ -11,24 +11,26 @@ export async function cached<T>(
     id = createHash("sha256")
       .update(provider + query)
       .digest("hex");
-  const row = sqlite
-    .prepare("SELECT data,expires_at FROM cache WHERE id=?")
-    .get(id) as { data: string; expires_at: number } | undefined;
-  if (!refresh && row && row.expires_at > Date.now())
-    return JSON.parse(row.data);
+  const [row] = await execute<{ data: unknown; expires_at: number }>(
+    "SELECT data,expires_at FROM cache WHERE id=$1",
+    [id],
+  );
+  if (!refresh && row && Number(row.expires_at) > Date.now())
+    return (
+      typeof row.data === "string" ? JSON.parse(row.data) : row.data
+    ) as T;
   const value = await fetcher();
-  sqlite
-    .prepare(
-      "INSERT INTO cache (id,provider,query,data,created_at,expires_at) VALUES (?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET data=excluded.data, created_at=excluded.created_at,expires_at=excluded.expires_at",
-    )
-    .run(
+  await execute(
+    "INSERT INTO cache (id,provider,query,data,created_at,expires_at) VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT(id) DO UPDATE SET data=excluded.data, created_at=excluded.created_at,expires_at=excluded.expires_at",
+    [
       id,
       provider,
       query,
-      JSON.stringify(value),
+      cloud ? value : JSON.stringify(value),
       new Date().toISOString(),
       Date.now() + ttl,
-    );
+    ],
+  );
   return value;
 }
 export async function fetchJson<T>(

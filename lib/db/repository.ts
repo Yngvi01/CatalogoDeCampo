@@ -1,5 +1,4 @@
-import { db, sqlite } from "./index";
-import * as tables from "./schema";
+import { cloud, query, transaction } from "./index";
 import {
   exportDataSchema,
   type ExportData,
@@ -21,23 +20,37 @@ export const tableNames = [
   "notes",
 ] as const;
 export type TableName = (typeof tableNames)[number];
-export function list<T>(table: TableName): T[] {
-  return (
-    sqlite.prepare(`SELECT data FROM ${table}`).all() as { data: string }[]
-  ).map((r) => JSON.parse(r.data) as T);
+export async function list<T>(table: TableName): Promise<T[]> {
+  const rows = await query<{ data: string | T }>(
+    `SELECT data FROM ${table} ORDER BY ${cloud ? "position" : "rowid"}`,
+  );
+  return rows.map((r) =>
+    typeof r.data === "string" ? (JSON.parse(r.data) as T) : r.data,
+  );
 }
-export function get<T>(table: TableName, id: string): T | undefined {
-  const r = sqlite.prepare(`SELECT data FROM ${table} WHERE id = ?`).get(id) as
-    | { data: string }
-    | undefined;
-  return r ? JSON.parse(r.data) : undefined;
+export async function get<T>(
+  table: TableName,
+  id: string,
+): Promise<T | undefined> {
+  const [r] = await query<{ data: string | T }>(
+    `SELECT data FROM ${table} WHERE id = $1`,
+    [id],
+  );
+  return r
+    ? typeof r.data === "string"
+      ? JSON.parse(r.data)
+      : r.data
+    : undefined;
 }
-export function put(
+export async function put(
   table: TableName,
   record: { id: string; [key: string]: unknown },
 ) {
   const columns = ["id", "data"];
-  const values: unknown[] = [record.id, JSON.stringify(record)];
+  const values: unknown[] = [
+    record.id,
+    cloud ? record : JSON.stringify(record),
+  ];
   if (table === "observations") {
     columns.push("code", "species_id");
     values.push(record.code, record.speciesId);
@@ -54,63 +67,56 @@ export function put(
     columns.push("compound_id");
     values.push(record.compoundId);
   }
-  sqlite
-    .prepare(
-      `INSERT INTO ${table} (${columns.join(",")}) VALUES (${columns.map(() => "?").join(",")}) ON CONFLICT(id) DO UPDATE SET ${columns
+  await transaction(async () => {
+    await query(
+      `INSERT INTO ${table} (${columns.join(",")}) VALUES (${columns.map((_, i) => `$${i + 1}`).join(",")}) ON CONFLICT(id) DO UPDATE SET ${columns
         .slice(1)
         .map((c) => `${c}=excluded.${c}`)
         .join(",")}`,
-    )
-    .run(...values);
+      values,
+    );
+  });
 }
-export function snapshot(): ExportData {
-  const data = Object.fromEntries(tableNames.map((n) => [n, list(n)]));
-  return exportDataSchema.parse(data);
+export async function snapshot(): Promise<ExportData> {
+  return transaction(async () => {
+    const entries = await Promise.all(
+      tableNames.map(async (name) => [name, await list(name)]),
+    );
+    return exportDataSchema.parse(Object.fromEntries(entries));
+  });
 }
-export function nextCode() {
-  const r = sqlite
-    .prepare(
-      "SELECT MAX(CAST(SUBSTR(code,7) AS INTEGER)) AS n FROM observations",
-    )
-    .get() as { n: number | null };
-  return `CAMPO-${String((r.n || 0) + 1).padStart(6, "0")}`;
+export async function nextCode() {
+  const rows = await list<Observation>("observations");
+  const next =
+    Math.max(0, ...rows.map((o) => Number(o.code.slice(6)) || 0)) + 1;
+  return `CAMPO-${String(next).padStart(6, "0")}`;
 }
-export function catalog() {
-  const photos = db
-    .select()
-    .from(tables.images)
-    .all()
-    .map((r) => r.data);
+export async function catalog() {
+  const data = await snapshot();
   return {
-    species: db
-      .select()
-      .from(tables.species)
-      .all()
-      .map((r) => r.data),
-    observations: db
-      .select()
-      .from(tables.observations)
-      .all()
-      .map((r) => ({
-        ...r.data,
-        photos: photos.filter((p) => p.observationId === r.id),
+    species: data.species,
+    observations: data.observations
+      .map((o) => ({
+        ...o,
+        photos: data.images.filter((p) => p.observationId === o.id),
       }))
       .sort((a, b) => b.observedAt.localeCompare(a.observedAt)),
-    compounds: list("compounds"),
-    evidence: list("evidence"),
-    discoveries: list("discoveries"),
-    notes: list("notes"),
+    compounds: data.compounds,
+    evidence: data.evidence,
+    discoveries: data.discoveries,
+    notes: data.notes,
     plantnetConfigured: !!process.env.PLANTNET_API_KEY,
     passwordConfigured: !!process.env.CAMPO_PASSWORD,
+    storageMode: cloud ? "supabase" : "local",
   };
 }
-export function findSpecies(name: string) {
-  return list<Species>("species").find(
+export async function findSpecies(name: string) {
+  return (await list<Species>("species")).find(
     (s) => normalize(s.scientificName) === normalize(name),
   );
 }
-export function personalContext(observation: Observation) {
-  return list<Observation>("observations")
+export async function personalContext(observation: Observation) {
+  return (await list<Observation>("observations"))
     .filter((o) => o.id !== observation.id && o.speciesId)
     .map((o) => ({
       observation: o,

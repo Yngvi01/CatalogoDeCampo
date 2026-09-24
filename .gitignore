@@ -6,3 +6,11 @@ data/
 *.tsbuildinfo
 playwright-report/
 test-results/
+.vercel
+.env*
+
+.env.*
+!.env.example
+.vercel/
+supabase/.temp/
+supabase/.branches/

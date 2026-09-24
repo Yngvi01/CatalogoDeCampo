@@ -1,15 +1,8 @@
 import { zipSync, unzipSync, strToU8, strFromU8 } from "fflate";
 import { createHash, randomUUID } from "node:crypto";
-import {
-  readFileSync,
-  writeFileSync,
-  mkdirSync,
-  existsSync,
-  unlinkSync,
-} from "node:fs";
 import path from "node:path";
 import { z } from "zod";
-import { sqlite, dataDir } from "@/lib/db";
+import { cloud, query, transaction } from "@/lib/db";
 import {
   snapshot,
   tableNames,
@@ -18,52 +11,62 @@ import {
   type TableName,
 } from "@/lib/db/repository";
 import { exportSchema, type ExportData } from "@/lib/validation/schemas";
-import { imageDir } from "@/lib/storage/photos";
+import {
+  readObject,
+  writeObject,
+  objectExists,
+  removeObject,
+} from "@/lib/storage/objects";
 const sha = (b: Uint8Array) => createHash("sha256").update(b).digest("hex");
-export function exportCatalog() {
+export async function exportCatalog() {
   return {
     format: "campo-catalogo" as const,
     version: 2 as const,
     exportedAt: new Date().toISOString(),
-    data: snapshot(),
+    data: await snapshot(),
   };
 }
-export function backup() {
-  const catalog = exportCatalog();
-  const files: Record<string, Uint8Array> = {
-    "export.json": strToU8(JSON.stringify(catalog, null, 2)),
-    "database.sqlite": sqlite.serialize(),
-  };
-  for (const p of catalog.data.images)
-    for (const name of [p.original, p.optimized, p.thumbnail]) {
-      const file = path.join(imageDir, name);
-      if (!existsSync(file))
-        throw new Error(
-          `Foto ausente: ${name}. Corrija antes de criar backup completo.`,
-        );
-      files[`images/${name}`] = readFileSync(file);
-    }
-  const checksums = Object.fromEntries(
-    Object.entries(files).map(([n, b]) => [n, sha(b)]),
-  );
-  files["manifest.json"] = strToU8(
-    JSON.stringify(
-      {
-        format: "campo-catalogo",
-        version: 2,
-        appVersion: "0.2.0",
-        exportedAt: catalog.exportedAt,
-        species: catalog.data.species.length,
-        observations: catalog.data.observations.length,
-        images: catalog.data.images.length,
-        notes: catalog.data.notes.length,
-        checksums,
-      },
-      null,
-      2,
-    ),
-  );
-  return zipSync(files, { level: 1 });
+export async function backup(): Promise<Uint8Array> {
+  return transaction(async () => {
+    const catalog = await exportCatalog();
+    const files: Record<string, Uint8Array> = {
+      "export.json": strToU8(JSON.stringify(catalog, null, 2)),
+    };
+    if (!cloud)
+      files["database.sqlite"] = (
+        await import("@/lib/db/local")
+      ).sqlite.serialize();
+    for (const p of catalog.data.images)
+      for (const name of [p.original, p.optimized, p.thumbnail]) {
+        const file = `images/${name}`;
+        if (!(await objectExists(file)))
+          throw new Error(
+            `Foto ausente: ${name}. Corrija antes de criar backup completo.`,
+          );
+        files[`images/${name}`] = await readObject(file);
+      }
+    const checksums = Object.fromEntries(
+      Object.entries(files).map(([n, b]) => [n, sha(b)]),
+    );
+    files["manifest.json"] = strToU8(
+      JSON.stringify(
+        {
+          format: "campo-catalogo",
+          version: 2,
+          appVersion: "0.2.0",
+          exportedAt: catalog.exportedAt,
+          species: catalog.data.species.length,
+          observations: catalog.data.observations.length,
+          images: catalog.data.images.length,
+          notes: catalog.data.notes.length,
+          checksums,
+        },
+        null,
+        2,
+      ),
+    );
+    return zipSync(files, { level: 1 });
+  });
 }
 const manifestSchema = z.object({
   format: z.literal("campo-catalogo"),
@@ -147,11 +150,7 @@ export function parseImport(bytes: Uint8Array) {
         return true;
       },
     });
-    if (
-      !files["manifest.json"] ||
-      !files["export.json"] ||
-      !files["database.sqlite"]
-    )
+    if (!files["manifest.json"] || !files["export.json"])
       throw new Error("Backup incompleto.");
     const manifest = manifestSchema.parse(
       JSON.parse(strFromU8(files["manifest.json"])),
@@ -161,7 +160,12 @@ export function parseImport(bytes: Uint8Array) {
         throw new Error(`Checksum inválido: ${n}`);
     for (const n of Object.keys(manifest.checksums))
       if (!files[n]) throw new Error("Arquivo do manifesto ausente.");
-    if (strFromU8(files["database.sqlite"].slice(0, 15)) !== "SQLite format 3")
+    if (manifest.version === 1 && !files["database.sqlite"])
+      throw new Error("Backup incompleto.");
+    if (
+      files["database.sqlite"] &&
+      strFromU8(files["database.sqlite"].slice(0, 15)) !== "SQLite format 3"
+    )
       throw new Error("Banco SQLite inválido.");
     parsed = JSON.parse(strFromU8(files["export.json"]));
     const imported = exportSchema.parse(parsed);
@@ -188,9 +192,9 @@ export function parseImport(bytes: Uint8Array) {
     }
   return { payload, files, isZip, hash: sha(bytes) };
 }
-export function previewImport(bytes: Uint8Array) {
+export async function previewImport(bytes: Uint8Array) {
   const parsed = parseImport(bytes),
-    current = snapshot();
+    current = await snapshot();
   const existing = Object.fromEntries(
     tableNames.map((n) => [
       n,
@@ -212,116 +216,135 @@ export function previewImport(bytes: Uint8Array) {
     codeConflicts,
     missingImages: parsed.isZip
       ? 0
-      : parsed.payload.data.images.filter((p) =>
-          [p.original, p.optimized, p.thumbnail].some(
-            (n) => !existsSync(path.join(imageDir, n)),
-          ),
-        ).length,
+      : (
+          await Promise.all(
+            parsed.payload.data.images.map(async (p) =>
+              (
+                await Promise.all(
+                  [p.original, p.optimized, p.thumbnail].map((n) =>
+                    objectExists(`images/${n}`),
+                  ),
+                )
+              ).some((exists) => !exists),
+            ),
+          )
+        ).filter(Boolean).length,
   };
 }
-export function importCatalog(
+export async function importCatalog(
   bytes: Uint8Array,
   strategy: "skip" | "update" | "new" | "restore",
   expectedHash: string,
 ) {
-  const parsed = parseImport(bytes);
-  if (parsed.hash !== expectedHash)
-    throw new Error("O arquivo mudou. Valide novamente antes de importar.");
-  if (strategy === "restore" && !parsed.isZip)
-    throw new Error("Restauração completa requer ZIP.");
-  let data = structuredClone(parsed.payload.data);
-  const current = snapshot();
-  const written: string[] = [];
-  let recovery: string | null = null;
-  // A restauração usa o export versionado validado, reconstruindo o banco com as migrations atuais.
-  if (strategy === "restore" || strategy === "update") {
-    const dir = path.join(dataDir, "backups");
-    mkdirSync(dir, { recursive: true });
-    recovery = path.join(dir, `before-${Date.now()}-${randomUUID()}.zip`);
-    writeFileSync(recovery, backup());
-  }
-  const maps: Record<string, string> = {};
-  if (strategy === "new") {
-    for (const n of tableNames)
-      for (const r of data[n]) if (n !== "settings") maps[r.id] = randomUUID();
-  } else if (strategy !== "restore") {
-    for (const o of data.observations) {
-      const existing = current.observations.find((c) => c.code === o.code);
-      if (existing && existing.id !== o.id)
-        throw new Error(
-          `Conflito no código ${o.code}. Use importar como novo ou restauração completa.`,
-        );
+  return transaction(async () => {
+    const parsed = parseImport(bytes);
+    if (parsed.hash !== expectedHash)
+      throw new Error("O arquivo mudou. Valide novamente antes de importar.");
+    if (strategy === "restore" && !parsed.isZip)
+      throw new Error("Restauração completa requer ZIP.");
+    let data = structuredClone(parsed.payload.data);
+    const current = await snapshot();
+    const written: string[] = [];
+    let recovery: string | null = null;
+    // A restauração usa o export versionado validado, reconstruindo o banco com as migrations atuais.
+    if (strategy === "restore" || strategy === "update") {
+      recovery = `before-${Date.now()}-${randomUUID()}.zip`;
+      await writeObject(
+        `backups/${recovery}`,
+        await backup(),
+        "application/zip",
+      );
     }
-  }
-  try {
-    sqlite.transaction(() => {
-      if (strategy === "restore")
-        for (const n of [...tableNames].reverse())
-          sqlite.prepare(`DELETE FROM ${n}`).run();
-      for (const name of tableNames) {
-        for (const raw of data[name]) {
-          if (strategy === "new" && name === "settings") continue;
-          const r = structuredClone(raw) as unknown as Record<
-            string,
-            unknown
-          > & { id: string };
-          if (strategy === "new") {
-            r.id = maps[r.id];
-            for (const key of [
-              "observationId",
-              "speciesId",
-              "previousSpeciesId",
-              "compoundId",
-            ])
-              if (typeof r[key] === "string") r[key] = maps[r[key] as string];
-            if (Array.isArray(r.imageIds))
-              r.imageIds = r.imageIds.map((id) => maps[id as string]);
-            if (name === "observations") r.code = nextCode();
-          }
-          if (strategy === "skip" && current[name].some((c) => c.id === r.id))
-            continue;
-          if (name === "images") {
-            for (const key of ["original", "optimized", "thumbnail"]) {
-              const originalName = r[key] as string;
-              const bytes = parsed.files[`images/${originalName}`];
-              if (bytes) {
-                let nameOnDisk = originalName;
-                const existing = path.join(imageDir, nameOnDisk);
-                if (
-                  strategy === "new" ||
-                  (existsSync(existing) &&
-                    sha(readFileSync(existing)) !== sha(bytes))
-                )
-                  nameOnDisk = `${randomUUID()}${key === "optimized" ? "-opt" : key === "thumbnail" ? "-thumb" : ""}${path.extname(originalName)}`;
-                const dest = path.join(imageDir, nameOnDisk);
-                if (!existsSync(dest)) {
-                  writeFileSync(dest, bytes, { flag: "wx" });
-                  written.push(dest);
+    const maps: Record<string, string> = {};
+    if (strategy === "new") {
+      for (const n of tableNames)
+        for (const r of data[n])
+          if (n !== "settings") maps[r.id] = randomUUID();
+    } else if (strategy !== "restore") {
+      for (const o of data.observations) {
+        const existing = current.observations.find((c) => c.code === o.code);
+        if (existing && existing.id !== o.id)
+          throw new Error(
+            `Conflito no código ${o.code}. Use importar como novo ou restauração completa.`,
+          );
+      }
+    }
+    try {
+      await transaction(async () => {
+        if (strategy === "restore")
+          for (const n of [...tableNames].reverse())
+            await query(`DELETE FROM ${n}`);
+        for (const name of tableNames) {
+          for (const raw of data[name]) {
+            if (strategy === "new" && name === "settings") continue;
+            const r = structuredClone(raw) as unknown as Record<
+              string,
+              unknown
+            > & { id: string };
+            if (strategy === "new") {
+              r.id = maps[r.id];
+              for (const key of [
+                "observationId",
+                "speciesId",
+                "previousSpeciesId",
+                "compoundId",
+              ])
+                if (typeof r[key] === "string") r[key] = maps[r[key] as string];
+              if (Array.isArray(r.imageIds))
+                r.imageIds = r.imageIds.map((id) => maps[id as string]);
+              if (name === "observations") r.code = await nextCode();
+            }
+            if (strategy === "skip" && current[name].some((c) => c.id === r.id))
+              continue;
+            if (name === "images") {
+              for (const key of ["original", "optimized", "thumbnail"]) {
+                const originalName = r[key] as string;
+                const bytes = parsed.files[`images/${originalName}`];
+                if (bytes) {
+                  let nameOnDisk = originalName;
+                  const existing = `images/${nameOnDisk}`;
+                  if (
+                    strategy === "new" ||
+                    ((await objectExists(existing)) &&
+                      sha(await readObject(existing)) !== sha(bytes))
+                  )
+                    nameOnDisk = `${randomUUID()}${key === "optimized" ? "-opt" : key === "thumbnail" ? "-thumb" : ""}${path.extname(originalName)}`;
+                  const dest = `images/${nameOnDisk}`;
+                  if (!(await objectExists(dest))) {
+                    await writeObject(dest, bytes);
+                    written.push(dest);
+                  }
+                  r[key] = nameOnDisk;
                 }
-                r[key] = nameOnDisk;
               }
             }
+            await put(name as TableName, r);
           }
-          put(name as TableName, r);
         }
-      }
-      validateRelations(snapshot());
-    })();
-  } catch (e) {
-    for (const file of written) unlinkSync(file);
-    throw e;
-  }
-  return {
-    ok: true,
-    recovery: recovery ? path.basename(recovery) : null,
-    missingImages: !parsed.isZip
-      ? data.images.filter((p) => !existsSync(path.join(imageDir, p.original)))
-          .length
-      : 0,
-  };
+        validateRelations(await snapshot());
+      });
+    } catch (e) {
+      for (const file of written) await removeObject(file).catch(() => {});
+      throw e;
+    }
+    return {
+      ok: true,
+      recovery: recovery ? path.basename(recovery) : null,
+      missingImages: !parsed.isZip
+        ? (
+            await Promise.all(
+              data.images.map(
+                async (p) => !(await objectExists(`images/${p.original}`)),
+              ),
+            )
+          ).filter(Boolean).length
+        : 0,
+    };
+  });
 }
-export function csv(table: "species" | "observations" | "compounds") {
-  const rows = snapshot()[table];
+
+export async function csv(table: "species" | "observations" | "compounds") {
+  const rows = (await snapshot())[table];
   const keys = rows[0]
     ? Object.keys(rows[0])
     : table === "species"

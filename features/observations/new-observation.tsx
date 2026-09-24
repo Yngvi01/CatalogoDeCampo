@@ -11,7 +11,8 @@ import {
   LoaderCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Modal, Field, ErrorText, api } from "@/components/shared";
+import { Modal, Field, ErrorText, api, send } from "@/components/shared";
+import { uploadDirect } from "@/lib/http/upload";
 const fungalFields = [
   "Píleo",
   "Cor",
@@ -99,10 +100,28 @@ export function NewObservation({
             const form = new FormData();
             form.set("data", JSON.stringify(data));
             photos.forEach((p) => form.append("photos", p));
+            const config = await api<{ direct: boolean }>("storage");
+            const uploads: string[] = [];
+            if (config.direct) {
+              if (
+                photos.some((p) => !p.size || p.size > 20 * 1024 * 1024) ||
+                photos.reduce((sum, p) => sum + p.size, 0) > 100 * 1024 * 1024
+              )
+                throw new Error(
+                  "Use fotos de até 20 MB; total máximo de 100 MB.",
+                );
+              for (const photo of photos)
+                uploads.push(await uploadDirect(photo, "photo"));
+            }
             const result = await api<{
               observation: { id: string };
               duplicates: string[];
-            }>("observations", { method: "POST", body: form });
+            }>(
+              "observations",
+              config.direct
+                ? send({ data, uploads })
+                : { method: "POST", body: form },
+            );
             onSaved(
               result.observation.id,
               result.duplicates.length

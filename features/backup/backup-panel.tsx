@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Download,
   Upload,
@@ -8,8 +8,9 @@ import {
   Archive,
   ShieldCheck,
 } from "lucide-react";
-import { Modal, Field, ErrorText, api } from "@/components/shared";
+import { Modal, Field, ErrorText, api, send } from "@/components/shared";
 import { Button } from "@/components/ui/button";
+import { uploadDirect } from "@/lib/http/upload";
 type Preview = {
   hash: string;
   isZip: boolean;
@@ -45,6 +46,17 @@ export function BackupPanel({
     [busy, setBusy] = useState(false),
     [notice, setNotice] = useState(""),
     [confirmed, setConfirmed] = useState(false);
+  const [direct, setDirect] = useState(false);
+  const [ticket, setTicket] = useState("");
+  const [importMax, setImportMax] = useState(256 * 1024 * 1024);
+  useEffect(() => {
+    api<{ direct: boolean; importMaxBytes: number }>("storage")
+      .then((config) => {
+        setDirect(config.direct);
+        setImportMax(config.importMaxBytes);
+      })
+      .catch((e) => setError(e.message));
+  }, []);
   return (
     <Modal
       title="Seus dados, com você."
@@ -58,7 +70,7 @@ export function BackupPanel({
             id: "zip",
             icon: Archive,
             title: "Backup completo",
-            desc: "Banco, fotos originais e otimizadas, relações e JSON. O formato para mudar de computador.",
+            desc: "Dados, fotos originais e otimizadas, relações e JSON. O formato para transferir seu catálogo.",
             label: "Baixar ZIP",
           },
           {
@@ -110,7 +122,7 @@ export function BackupPanel({
       </p>
       <div className="section-heading">
         <h2>Importar / Restaurar</h2>
-        <span>JSON ou ZIP · até 256 MB</span>
+        <span>JSON ou ZIP · até {importMax / 1024 / 1024} MB</span>
       </div>
       <div className="import-box panel">
         <Field label="Arquivo do catálogo">
@@ -119,6 +131,7 @@ export function BackupPanel({
             accept=".json,.zip,application/json,application/zip"
             onChange={(e) => {
               setFile(e.target.files?.[0] || null);
+              setTicket("");
               setPreview(null);
               setConfirmed(false);
               setNotice("");
@@ -133,13 +146,23 @@ export function BackupPanel({
             setBusy(true);
             setError("");
             try {
+              if (file!.size > importMax)
+                throw new Error(
+                  `O arquivo deve ter até ${importMax / 1024 / 1024} MB.`,
+                );
+              const uploaded = direct
+                ? await uploadDirect(file!, "import")
+                : "";
+              setTicket(uploaded);
               const f = new FormData();
               f.set("file", file!);
               setPreview(
-                await api<Preview>("import/preview", {
-                  method: "POST",
-                  body: f,
-                }),
+                await api<Preview>(
+                  "import/preview",
+                  direct
+                    ? send({ ticket: uploaded })
+                    : { method: "POST", body: f },
+                ),
               );
             } catch (e) {
               setError((e as Error).message);
@@ -180,7 +203,7 @@ export function BackupPanel({
             )}
             {preview.missingImages > 0 && (
               <p className="error">
-                {preview.missingImages} fotos não estão neste computador.
+                {preview.missingImages} fotos não estão no armazenamento atual.
                 Importe o ZIP para preservar as imagens.
               </p>
             )}
@@ -208,9 +231,9 @@ export function BackupPanel({
               {strategy === "new"
                 ? "Cria novos IDs e refaz todas as relações. Os códigos CAMPO serão renumerados."
                 : strategy === "restore"
-                  ? "Substitui os dados atuais pelos do backup e preserva os IDs originais. Uma cópia automática do estado atual será criada em data/backups."
+                  ? "Substitui os dados atuais pelos do backup e preserva os IDs originais. Uma cópia automática do estado atual será criada no armazenamento de backups."
                   : strategy === "update"
-                    ? "Sobrescreve registros de mesmo ID. Uma cópia automática será criada em data/backups."
+                    ? "Sobrescreve registros de mesmo ID. Uma cópia automática será criada no armazenamento de backups."
                     : "Registros com o mesmo ID serão preservados. IDs novos serão adicionados."}
             </p>
             <label className="checkbox">
@@ -235,10 +258,15 @@ export function BackupPanel({
                   const r = await api<{
                     recovery: string | null;
                     missingImages: number;
-                  }>("import/commit", { method: "POST", body: f });
+                  }>(
+                    "import/commit",
+                    direct
+                      ? send({ ticket, strategy, hash: preview.hash })
+                      : { method: "POST", body: f },
+                  );
                   await onChanged();
                   setNotice(
-                    `Importação concluída.${r.recovery ? ` Backup anterior: data/backups/${r.recovery}.` : ""}${r.missingImages ? " As fotos ausentes precisam ser recuperadas de um ZIP." : ""}`,
+                    `Importação concluída.${r.recovery ? ` Backup anterior: backups/${r.recovery}.` : ""}${r.missingImages ? " As fotos ausentes precisam ser recuperadas de um ZIP." : ""}`,
                   );
                   setPreview(null);
                 } catch (e) {

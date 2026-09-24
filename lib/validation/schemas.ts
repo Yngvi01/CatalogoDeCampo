@@ -266,4 +266,5 @@ export type Catalog = {
   notes: Note[];
   plantnetConfigured: boolean;
   passwordConfigured: boolean;
+  storageMode: "local" | "supabase";
 };

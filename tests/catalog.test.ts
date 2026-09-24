@@ -11,7 +11,7 @@ const setup = Promise.all([
   import("../features/observations/service"),
   import("../features/backup/service"),
   import("../lib/db/repository"),
-  import("../lib/db"),
+  import("../lib/db/local"),
 ]);
 after(async () => {
   const [, , , { sqlite }] = await setup;
@@ -54,7 +54,7 @@ test("Fluxo completo: fotos, identificação, histórico, backup portátil e res
   const second = await service.createObservation(await photoForm());
   assert.equal(second.observation.code, "CAMPO-000002");
   assert.equal(second.duplicates.length, 1);
-  const data = repo.snapshot();
+  const data = await repo.snapshot();
   const photo = data.images[0];
   assert.ok(existsSync(path.join(temp, "images", photo.original)));
   const info = await sharp(
@@ -64,66 +64,66 @@ test("Fluxo completo: fotos, identificação, histórico, backup portátil e res
   assert.equal(info.exif, undefined);
   assert.equal(info.width, 80);
   assert.equal(info.height, 120);
-  const species = service.confirmIdentification(first.observation.id, {
+  const species = await service.confirmIdentification(first.observation.id, {
     scientificName: "Passiflora edulis",
     status: "probable",
     note: "Hipótese inicial",
   });
-  service.confirmIdentification(first.observation.id, {
+  await service.confirmIdentification(first.observation.id, {
     scientificName: "Passiflora edulis",
     status: "user_identified",
     note: "Características revisadas",
   });
-  assert.equal(repo.snapshot().species.length, 1);
-  assert.equal(repo.snapshot().history.length, 2);
-  assert.equal(repo.snapshot().observations[0].speciesId, species.id);
-  assert.throws(
-    () =>
-      service.confirmIdentification(first.observation.id, {
+  assert.equal((await repo.snapshot()).species.length, 1);
+  assert.equal((await repo.snapshot()).history.length, 2);
+  assert.equal((await repo.snapshot()).observations[0].speciesId, species.id);
+  await assert.rejects(
+    async () =>
+      await service.confirmIdentification(first.observation.id, {
         scientificName: "Passiflora edulis",
         status: "externally_confirmed",
       }),
     /fonte/,
   );
-  const archive = backup.backup();
+  const archive = await backup.backup();
   const parsed = backup.parseImport(archive);
   assert.equal(parsed.payload.data.observations.length, 2);
   const entries = unzipSync(archive);
   assert.ok(entries["database.sqlite"]);
   assert.ok(entries["manifest.json"]);
   assert.ok(!Object.keys(entries).some((k) => k.includes(".env")));
-  const preview = backup.previewImport(archive);
+  const preview = await backup.previewImport(archive);
   assert.equal(preview.existing.observations, 2);
-  backup.importCatalog(archive, "skip", preview.hash);
-  assert.equal(repo.snapshot().observations.length, 2);
-  backup.importCatalog(archive, "new", preview.hash);
-  let next = repo.snapshot();
+  await backup.importCatalog(archive, "skip", preview.hash);
+  assert.equal((await repo.snapshot()).observations.length, 2);
+  await backup.importCatalog(archive, "new", preview.hash);
+  let next = await repo.snapshot();
   assert.equal(next.observations.length, 4);
   assert.equal(next.species.length, 2);
   assert.equal(next.images.length, 4);
   assert.equal(next.observations[2].code, "CAMPO-000003");
   assert.equal(next.observations[2].speciesId, next.species[1].id);
   assert.notEqual(next.images[2].original, photo.original);
-  const restored = backup.importCatalog(archive, "restore", preview.hash);
+  const restored = await backup.importCatalog(archive, "restore", preview.hash);
   assert.ok(restored.recovery);
   assert.ok(existsSync(path.join(temp, "backups", restored.recovery!)));
-  assert.deepEqual(repo.snapshot(), parsed.payload.data);
+  assert.deepEqual(await repo.snapshot(), parsed.payload.data);
   assert.deepEqual(sqlite.pragma("foreign_key_check"), []);
   // A alteração de dados preserva um backup anterior e mantém relações.
-  const update = backup.exportCatalog();
+  const update = await backup.exportCatalog();
   update.data.species[0].notes = "Atualizado";
   const bytes = strToU8(JSON.stringify(update));
-  const updatePreview = backup.previewImport(bytes);
-  backup.importCatalog(bytes, "update", updatePreview.hash);
-  assert.equal(repo.snapshot().species[0].notes, "Atualizado");
-  assert.throws(
-    () => backup.importCatalog(bytes, "skip", "incorrect"),
+  const updatePreview = await backup.previewImport(bytes);
+  await backup.importCatalog(bytes, "update", updatePreview.hash);
+  assert.equal((await repo.snapshot()).species[0].notes, "Atualizado");
+  await assert.rejects(
+    async () => await backup.importCatalog(bytes, "skip", "incorrect"),
     /mudou/,
   );
 });
 test("Importação rejeita corrupção, path traversal, relações órfãs, versões e URLs perigosas", async () => {
   const [, b] = await setup;
-  const zip = b.backup(),
+  const zip = await b.backup(),
     files = unzipSync(zip);
   files["export.json"] = strToU8("{}");
   assert.throws(() => b.parseImport(zipSync(files)), /Checksum/);
@@ -131,18 +131,18 @@ test("Importação rejeita corrupção, path traversal, relações órfãs, vers
     () => b.parseImport(zipSync({ "../escape": strToU8("x") })),
     /caminho/,
   );
-  const invalid = b.exportCatalog();
+  const invalid = await b.exportCatalog();
   invalid.data.observations[0].speciesId = "missing";
   assert.throws(
     () => b.parseImport(strToU8(JSON.stringify(invalid))),
     /inexistente/,
   );
-  assert.throws(() =>
+  await assert.rejects(async () =>
     b.parseImport(
-      strToU8(JSON.stringify({ ...b.exportCatalog(), version: 99 })),
+      strToU8(JSON.stringify({ ...(await b.exportCatalog()), version: 99 })),
     ),
   );
-  const bad = b.exportCatalog();
+  const bad = await b.exportCatalog();
   bad.data.discoveries.push({
     id: "unsafe",
     speciesId: bad.data.species[0].id,
@@ -163,8 +163,10 @@ test("CSV neutraliza fórmulas e a busca normaliza acentos", async () => {
   const [service, b, repo] = await setup;
   const { normalize } = await import("../lib/utils");
   assert.equal(normalize("ÁRVORE de São Paulo"), "arvore de sao paulo");
-  service.updateSpecies(repo.snapshot().species[0].id, { notes: "=SUM(1,1)" });
-  assert.match(b.csv("species"), /"'=SUM\(1,1\)"/);
+  await service.updateSpecies((await repo.snapshot()).species[0].id, {
+    notes: "=SUM(1,1)",
+  });
+  assert.match(await b.csv("species"), /"'=SUM\(1,1\)"/);
 });
 test("Autenticação exige assinatura e CSRF exige mesma origem", async () => {
   const { validToken, token, sameOrigin } = await import("../lib/auth");

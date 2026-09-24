@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { sqlite } from "@/lib/db";
+import { transaction } from "@/lib/db";
 import {
   get,
   list,
@@ -34,44 +34,45 @@ export async function createObservation(form: FormData) {
     photos: Photo[] = [];
   try {
     for (const f of files) photos.push(await savePhoto(f, id));
+    const existingPhotos = await list<Photo>("images");
     const duplicates = photos.filter(
       (p, i) =>
         photos.slice(0, i).some((x) => x.hash === p.hash) ||
-        list<Photo>("images").some((x) => x.hash === p.hash),
+        existingPhotos.some((x) => x.hash === p.hash),
     );
-    const observation = sqlite.transaction(() => {
+    const observation = await transaction(async () => {
       const o: Observation = {
         ...input,
         id,
-        code: nextCode(),
+        code: await nextCode(),
         observedAt: input.observedAt || new Date().toISOString(),
         createdAt: new Date().toISOString(),
         status: "unidentified",
         speciesId: null,
       };
-      put("observations", o);
-      photos.forEach((p) => put("images", p));
+      await put("observations", o);
+      for (const p of photos) await put("images", p);
       return o;
-    })();
+    });
     return { observation, duplicates: duplicates.map((p) => p.id) };
   } catch (error) {
     await Promise.all(photos.map(removePhoto));
     throw error;
   }
 }
-export function observationDetail(id: string) {
-  const observation = get<Observation>("observations", id);
+export async function observationDetail(id: string) {
+  const observation = await get<Observation>("observations", id);
   if (!observation) throw new Error("Observação não encontrada.");
   return {
     ...observation,
-    photos: list<Photo>("images").filter((p) => p.observationId === id),
-    identifications: list<Identification>("identifications").filter(
+    photos: (await list<Photo>("images")).filter((p) => p.observationId === id),
+    identifications: (await list<Identification>("identifications")).filter(
       (i) => i.observationId === id,
     ),
-    history: list<{ observationId: string }>("history").filter(
+    history: (await list<{ observationId: string }>("history")).filter(
       (h) => h.observationId === id,
     ),
-    context: personalContext(observation),
+    context: await personalContext(observation),
   };
 }
 export const confirmInput = z
@@ -88,13 +89,13 @@ export const confirmInput = z
     (v) => v.status !== "externally_confirmed" || v.note.trim().length > 3,
     "Informe a fonte da confirmação externa.",
   );
-export function confirmIdentification(id: string, input: unknown) {
+export async function confirmIdentification(id: string, input: unknown) {
   const value = confirmInput.parse(input);
-  return sqlite.transaction(() => {
-    const o = get<Observation>("observations", id);
+  return await transaction(async () => {
+    const o = await get<Observation>("observations", id);
     if (!o) throw new Error("Observação não encontrada.");
     const previousSpeciesId = o.speciesId;
-    let s = findSpecies(value.scientificName);
+    let s = await findSpecies(value.scientificName);
     if (s && s.group !== o.group)
       throw new Error("Esta espécie está cadastrada em outro grupo.");
     if (!s) {
@@ -117,9 +118,9 @@ export function confirmIdentification(id: string, input: unknown) {
         notes: "",
         createdAt: new Date().toISOString(),
       });
-      put("species", s);
+      await put("species", s);
     }
-    put("history", {
+    await put("history", {
       id: randomUUID(),
       observationId: id,
       previousStatus: o.status,
@@ -129,41 +130,43 @@ export function confirmIdentification(id: string, input: unknown) {
       note: value.note,
       createdAt: new Date().toISOString(),
     });
-    put("observations", { ...o, speciesId: s.id, status: value.status });
+    await put("observations", { ...o, speciesId: s.id, status: value.status });
     if (value.identificationId) {
-      const identification = get<Identification>(
+      const identification = await get<Identification>(
         "identifications",
         value.identificationId,
       );
       if (!identification || identification.observationId !== id)
         throw new Error("Consulta de identificação inválida.");
-      put("identifications", {
+      await put("identifications", {
         ...identification,
         selectedName: s.scientificName,
       });
     }
     return s;
-  })();
+  });
 }
-export function updateSpecies(id: string, input: unknown) {
-  const current = get<Species>("species", id);
-  if (!current) throw new Error("Espécie não encontrada.");
-  const value = speciesSchema
-    .omit({ id: true, createdAt: true })
-    .partial()
-    .parse(input);
-  const result = speciesSchema.parse({ ...current, ...value });
-  const duplicate = findSpecies(result.scientificName);
-  if (duplicate && duplicate.id !== id)
-    throw new Error("Já existe uma espécie com esse nome científico.");
-  if (
-    list<Observation>("observations").some(
-      (o) => o.speciesId === id && o.group !== result.group,
+export async function updateSpecies(id: string, input: unknown) {
+  return transaction(async () => {
+    const current = await get<Species>("species", id);
+    if (!current) throw new Error("Espécie não encontrada.");
+    const value = speciesSchema
+      .omit({ id: true, createdAt: true })
+      .partial()
+      .parse(input);
+    const result = speciesSchema.parse({ ...current, ...value });
+    const duplicate = await findSpecies(result.scientificName);
+    if (duplicate && duplicate.id !== id)
+      throw new Error("Já existe uma espécie com esse nome científico.");
+    if (
+      (await list<Observation>("observations")).some(
+        (o) => o.speciesId === id && o.group !== result.group,
+      )
     )
-  )
-    throw new Error(
-      "O grupo deve ser compatível com as observações vinculadas.",
-    );
-  put("species", result);
-  return result;
+      throw new Error(
+        "O grupo deve ser compatível com as observações vinculadas.",
+      );
+    await put("species", result);
+    return result;
+  });
 }

@@ -271,8 +271,8 @@ export function NotebookPanel({
         />
       )}
       <p className="notebook-footnote">
-        Suas páginas ficam salvas neste computador e acompanham o backup
-        completo do catálogo.
+        Suas páginas ficam salvas no catálogo e acompanham o backup completo do
+        catálogo.
       </p>
       {editing && (
         <NoteEditor

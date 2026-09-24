@@ -9,7 +9,7 @@ process.env.CAMPO_DATA_DIR = temp;
 const originalFetch = globalThis.fetch;
 after(async () => {
   globalThis.fetch = originalFetch;
-  (await import("../lib/db")).sqlite.close();
+  (await import("../lib/db/local")).sqlite.close();
   rmSync(temp, { recursive: true, force: true });
   delete process.env.PLANTNET_API_KEY;
   delete process.env.SPECIESLINK_API_KEY;
@@ -50,7 +50,7 @@ test("Pl@ntNet: cache, fotos sem EXIF, candidatos permanentes e confirmação ma
   globalThis.fetch = async (_url, options) => {
     calls++;
     const form = options!.body as FormData;
-    const file = form.get("images") as File;
+    const file = (await form.get("images")) as File;
     assert.equal(
       (await sharp(Buffer.from(await file.arrayBuffer())).metadata()).exif,
       undefined,
@@ -73,10 +73,10 @@ test("Pl@ntNet: cache, fotos sem EXIF, candidatos permanentes e confirmação ma
   };
   const result = await identify(observation.id);
   assert.equal(result.candidates[0].score, 0.81);
-  assert.equal(snapshot().observations[0].status, "candidates");
-  assert.equal(snapshot().species.length, 0);
-  assert.equal(snapshot().identifications.length, 1);
-  assert.ok(!JSON.stringify(snapshot()).includes("mock-secret-plantnet"));
+  assert.equal((await snapshot()).observations[0].status, "candidates");
+  assert.equal((await snapshot()).species.length, 0);
+  assert.equal((await snapshot()).identifications.length, 1);
+  assert.ok(!JSON.stringify(await snapshot()).includes("mock-secret-plantnet"));
   await identify(observation.id);
   assert.equal(calls, 1);
   await identify(observation.id, true);
@@ -91,7 +91,7 @@ test("Fungos usam contexto geográfico, sem score visual; speciesLink não expõ
   const { fungi, specieslink } = await import("../lib/providers/biodiversity");
   const { snapshot } = await import("../lib/db/repository");
   const observation = {
-    ...snapshot().observations[0],
+    ...(await snapshot()).observations[0],
     group: "fungus" as const,
     latitude: -23.5,
     longitude: -46.6,
@@ -131,10 +131,13 @@ test("Descobertas são deduplicadas e exigem incorporação explícita", async (
   const { investigate, incorporate } =
     await import("../features/research/service");
   const { snapshot } = await import("../lib/db/repository");
-  const species = confirmIdentification(snapshot().observations[0].id, {
-    scientificName: "Passiflora edulis",
-    status: "probable",
-  });
+  const species = await confirmIdentification(
+    (await snapshot()).observations[0].id,
+    {
+      scientificName: "Passiflora edulis",
+      status: "probable",
+    },
+  );
   globalThis.fetch = async () =>
     Response.json({
       resultList: {
@@ -153,12 +156,12 @@ test("Descobertas são deduplicadas e exigem incorporação explícita", async (
     });
   await investigate(species.id);
   await investigate(species.id);
-  assert.equal(snapshot().discoveries.length, 1);
-  assert.equal(snapshot().research.length, 2);
-  assert.equal(snapshot().evidence.length, 0);
-  assert.equal(snapshot().species[0].description, "");
-  const d = snapshot().discoveries[0];
-  incorporate(d.id, {
+  assert.equal((await snapshot()).discoveries.length, 1);
+  assert.equal((await snapshot()).research.length, 2);
+  assert.equal((await snapshot()).evidence.length, 0);
+  assert.equal((await snapshot()).species[0].description, "");
+  const d = (await snapshot()).discoveries[0];
+  await incorporate(d.id, {
     property: "chemical composition",
     claim: "Artigo a revisar; amostra específica.",
     type: "in_vitro",
@@ -171,7 +174,7 @@ test("Descobertas são deduplicadas e exigem incorporação explícita", async (
     sampleOrigin: "",
     notes: "",
   });
-  assert.equal(snapshot().discoveries[0].status, "incorporated");
-  assert.equal(snapshot().evidence.length, 1);
+  assert.equal((await snapshot()).discoveries[0].status, "incorporated");
+  assert.equal((await snapshot()).evidence.length, 1);
   globalThis.fetch = originalFetch;
 });

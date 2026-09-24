@@ -38,8 +38,28 @@ Não há sincronização offline nesta versão. O service worker oferece uma tel
 
 ## Configuração
 
+### Vercel + Supabase
+
+O modo `CAMPO_STORAGE=supabase` usa PostgreSQL e um bucket privado no Supabase, sem gravar dados no disco da Vercel. O modo `local` mantém SQLite e fotos em `CAMPO_DATA_DIR`.
+
+1. Crie um projeto Supabase, vincule com `supabase link --project-ref SEU_REF` e aplique `supabase db push`. As migrations estão em `supabase/migrations`; tabelas têm RLS habilitada e acesso público bloqueado.
+2. Crie o bucket privado `campo-private`, com limite de arquivo de 50 MB.
+3. Na Vercel configure `CAMPO_STORAGE=supabase`, `DATABASE_URL` (Transaction pooler, porta 6543), `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_STORAGE_BUCKET=campo-private` e `CAMPO_PASSWORD`. Preserve as chaves opcionais dos provedores.
+4. Faça um novo deploy. Nunca use prefixo `NEXT_PUBLIC_` nas credenciais. A senha é obrigatória no modo hospedado.
+
+Fotos são enviadas diretamente ao bucket por links temporários, e o servidor valida tamanho, formato e conteúdo antes de salvar a observação. Downloads usam links de cinco minutos. JSON, CSV e ZIP também passam pelo Storage para evitar o limite de resposta da Vercel. Na nuvem, cada foto pode ter até 20 MB, o conjunto até 100 MB e a importação/arquivo de backup até 50 MB. Localmente, a importação continua aceitando até 256 MB. ZIPs da nuvem contêm JSON, fotos e checksums; o arquivo SQLite só é incluído em backups locais. Ambos são importáveis nos dois modos.
+
+Antes de atualizar ou restaurar dados por importação, o sistema preserva um ZIP em `backups/` no bucket (ou `data/backups` no modo local). Os dados locais não são enviados automaticamente: use o ZIP para transferir o catálogo. Nenhuma migration SQLite deve ser executada no Supabase.
+
+Para outra hospedagem com disco persistente, use o modo local, HTTPS e senha. `/tmp` não serve como armazenamento definitivo. Consulte os Runtime Logs da Vercel se a API informar falha de conexão ou configuração.
+
 | Variável | Uso |
 | --- | --- |
+| `CAMPO_STORAGE` | `local` ou `supabase` |
+| `DATABASE_URL` | Conexão PostgreSQL do Supabase, somente servidor |
+| `SUPABASE_URL` | URL do projeto Supabase |
+| `SUPABASE_SERVICE_ROLE_KEY` | Chave privada para o Storage, somente servidor |
+| `SUPABASE_STORAGE_BUCKET` | Bucket privado, padrão `campo-private` |
 | `CAMPO_DATA_DIR` | Diretório persistente; padrão `./data` |
 | `CAMPO_PASSWORD` | Senha de acesso, obrigatória nos scripts de rede local |
 | `PLANTNET_API_KEY` | Chave opcional do Pl@ntNet; somente no servidor |
@@ -89,7 +109,7 @@ Providers separados implementam `IdentificationProvider`, `TaxonomyProvider`, `O
 
 **Literatura:** resultados nunca alteram a ficha automaticamente. Incorporar exige escrever a afirmação e escolher seu tipo de evidência. Parte da planta/fungo, concentração, unidade, intervalo, método e origem da amostra ficam na relação espécie–composto, com fonte. As informações textuais do composto são anotações; suas referências são vinculadas nas evidências das espécies. Não são geradas doses nem recomendações de consumo.
 
-**Privacidade:** os dados permanecem locais. Consultas iniciadas pelo usuário enviam nomes científicos e, quando necessário, coordenadas aos respectivos providers. Abrir o mapa carrega tiles do OpenStreetMap. As fotos são enviadas externamente apenas ao acionar Pl@ntNet. Original com EXIF fica no seu computador e no backup completo.
+**Privacidade:** no modo local, os dados ficam no computador. No modo Supabase, registros e fotos ficam no projeto Supabase e são acessados pelo servidor Vercel autenticado. Consultas iniciadas pelo usuário enviam nomes científicos e, quando necessário, coordenadas aos respectivos providers. Abrir o mapa carrega tiles do OpenStreetMap. O Pl@ntNet recebe fotos apenas quando acionado. Originais podem conter EXIF; ficam no armazenamento configurado (disco local ou bucket privado) e no backup completo.
 
 ## Backup e transferência
 
@@ -114,7 +134,7 @@ A importação valida versão, schema, IDs, códigos, relações, checksums, pre
 
 Conflitos de código CAMPO entre IDs diferentes são bloqueados em mesclagens. O arquivo precisa ser o mesmo que foi pré-visualizado. Dados são gravados em transação; novos arquivos são revertidos quando a transação falha. Imagens existentes nunca são sobrescritas: divergências recebem novos nomes. Arquivos antigos não referenciados são mantidos, evitando apagar fotos durante a restauração.
 
-A restauração reconstrói as tabelas **a partir do JSON versionado** com as migrations atuais; não substitui o arquivo SQLite aberto nem executa SQL de um arquivo enviado. O snapshot SQLite é preservado no ZIP para recuperação independente. Cache externo não é necessário para restaurar o catálogo; identificações permanentes estão no JSON. Restaurações não importam credenciais.
+A restauração reconstrói as tabelas **a partir do JSON versionado** com as migrations atuais; não substitui o arquivo SQLite aberto nem executa SQL de um arquivo enviado. Backups locais também preservam um snapshot SQLite para recuperação independente. Cache externo não é necessário para restaurar o catálogo; identificações permanentes estão no JSON. Restaurações não importam credenciais.
 
 Para transferir: instale o projeto no destino, inicie, abra Dados e backup, selecione o ZIP, valide a prévia e escolha restaurar. Guarde cópias em outro dispositivo; `data/backups/` no mesmo disco não protege contra perda física do computador.
 
@@ -130,13 +150,13 @@ features/research/      Publicações, compostos e revisão
 features/notebook/      Caderno, leitura e edição de páginas
 features/map/           MapLibre + tiles OpenStreetMap
 features/backup/        Exportação e restauração
-lib/db/                 Drizzle, SQLite, migrations e repositório
+lib/db/                 Adaptadores SQLite/PostgreSQL e repositório
 lib/storage/            Processamento e armazenamento de fotos
 lib/validation/         Schemas Zod e limites de leitura HTTP
 lib/providers/          Adaptadores independentes e cache
 ```
 
-Banco SQLite com WAL, foreign keys e transações. Relações essenciais são colunas com chaves estrangeiras; documentos tipados e validados ficam em colunas JSON. A interface de repositório centraliza acesso ao SQLite. Migrar para PostgreSQL exige adaptar esse repositório/driver e gerar migrations; não é uma troca automática de URL. O SQLite não deve ser compartilhado entre várias instâncias nem colocado em filesystem de rede.
+O repositório assíncrono usa SQLite com WAL no modo local e PostgreSQL com pool de transações no Supabase. Ambos preservam chaves estrangeiras e documentos validados. Transações PostgreSQL usam um lock compartilhado entre instâncias para numeração e alterações concorrentes. SQLite não deve ser compartilhado entre várias instâncias nem colocado em filesystem de rede.
 
 A entrega reúne o fluxo MVP, fontes externas, pesquisa científica e assistência contextual inicial para fungos. Próximas evoluções: modelo visual local de fungos, pesquisa paginada para grandes catálogos, backup em streaming e criação offline. O sistema continua utilizável sem essas extensões.
 
@@ -165,15 +185,21 @@ Testes de serviço usam banco temporário e verificam registro, EXIF, histórico
 
 O bloco **Uma pausa para pensar** exibe frases em inglês do [ZenQuotes](https://docs.zenquotes.io/zenquotes-documentation/), com autor e crédito/link do serviço. Não exige chave nem dependência adicional. A seleção muda aleatoriamente a cada 60 segundos, sem repetição imediata; é possível pausar, retomar ou avançar manualmente. A rotação para quando a aba fica oculta e respeita a preferência por movimento reduzido na transição.
 
-O backend busca um lote de frases e o mantém no cache SQLite por 24 horas. Cada troca acontece no navegador, sem nova chamada externa. Em caso de falha, preserva o último lote disponível e aguarda 15 minutos antes de tentar novamente. Sem cache, exibe reflexões originais do Campo, identificadas como tal. O serviço recebe uma consulta genérica do servidor; não recebe fotos, coordenadas ou dados do catálogo. O plano gratuito retorna reflexões gerais, sem promessa de filtro por filosofia ou psicologia.
+O backend busca um lote de frases e o mantém no cache do banco por 24 horas. Cada troca acontece no navegador, sem nova chamada externa. Em caso de falha, preserva o último lote disponível e aguarda 15 minutos antes de tentar novamente. Sem cache, exibe reflexões originais do Campo, identificadas como tal. O serviço recebe uma consulta genérica do servidor; não recebe fotos, coordenadas ou dados do catálogo. O plano gratuito retorna reflexões gerais, sem promessa de filtro por filosofia ou psicologia.
 
 
 ## Caderno de anotações
 
 Em **Pesquisa → Caderno**, cada anotação é uma página com título, texto livre, etiquetas e datas de criação/edição. O índice permite alternar páginas em uma leitura semelhante a um livro. A busca do caderno e a busca global nessa área ignoram acentos e maiúsculas, pesquisando títulos, textos e etiquetas.
 
-Use **Salvar página** (ou Ctrl/⌘ S) para gravar no SQLite. A edição avisa antes de descartar mudanças ao fechar o editor ou sair da página. Não há salvamento automático nem gravação offline: se o envio falhar, mantenha o editor aberto ou copie o texto antes de sair. Alterações concorrentes em outra janela são bloqueadas para não sobrescrever a versão mais recente.
+Use **Salvar página** (ou Ctrl/⌘ S) para gravar no banco configurado. A edição avisa antes de descartar mudanças ao fechar o editor ou sair da página. Não há salvamento automático nem gravação offline: se o envio falhar, mantenha o editor aberto ou copie o texto antes de sair. Alterações concorrentes em outra janela são bloqueadas para não sobrescrever a versão mais recente.
 
 **Arquivar** mantém a página guardada e pesquisável em **Arquivadas**; **Restaurar página** devolve ao caderno. Também é possível baixar cada página como TXT. Não há exclusão definitiva na interface.
 
 O backup passou para o **formato 2** para incluir as páginas, inclusive arquivadas. JSON e ZIP da versão 1 continuam sendo aceitos e são interpretados como sem páginas. Uma restauração completa de um backup antigo esvazia o caderno, como indicado na prévia, mas cria antes um backup automático contendo o estado atual. Use esta versão ou uma mais recente do aplicativo para importar arquivos do formato 2.
+
+### Verificar a integração Supabase
+
+Com variáveis de um projeto de teste configuradas, execute `CAMPO_SUPABASE_TEST=1 node --env-file=SEU_ARQUIVO_PRIVADO --import tsx --test tests/supabase.test.ts`. O teste verifica transações, conflitos, upload assinado, privacidade e backup; remove apenas os registros que criou. A suíte padrão não acessa Supabase.
+
+Uploads abandonados e cópias temporárias de exportação com mais de 24 horas são removidos em lotes nas próximas operações de upload/exportação. Fotos definitivas e backups de recuperação não são removidos por essa rotina.

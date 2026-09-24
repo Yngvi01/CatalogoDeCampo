@@ -1,0 +1,7 @@
+data/
+.env*
+.git/
+playwright-report/
+test-results/
+supabase/.temp/
+supabase/.branches/
