@@ -292,7 +292,7 @@ export function CampoApp() {
                         ? "SEU LIVRO EM CONSTRUÇÃO"
                         : area === "library"
                           ? "FLORA DOCUMENTADA DO RIO GRANDE DO SUL"
-                        : "DAS OBSERVAÇÕES ÀS EVIDÊNCIAS"}
+                        : "PLANTAS · SUBSTÂNCIAS · FONTES"}
               </span>
               <h1>
                 {area === "identify"
@@ -305,7 +305,7 @@ export function CampoApp() {
                         ? "Meu caderno"
                         : area === "library"
                           ? "Biblioteca de plantas"
-                        : "Siga as perguntas."}
+                        : "Explore substâncias em plantas."}
               </h1>
               <p>
                 {area === "identify"
@@ -318,7 +318,7 @@ export function CampoApp() {
                         ? "Um espaço para suas leituras, ideias e anotações. Escreva livremente e volte quando quiser."
                         : area === "library"
                           ? "Plantas encontradas no RS, com usos, composição e fontes para consultar."
-                        : "Literatura, compostos e conexões — com a fonte sempre por perto."}
+                        : "Encontre relações documentadas e examine a evidência antes de incorporá-las ao seu catálogo."}
               </p>
             </div>
             <Button onClick={() => setNewOpen(true)}>
@@ -354,9 +354,9 @@ export function CampoApp() {
                         </Button>
                         <button
                           className="text-button"
-                          onClick={() => setArea("catalog")}
+                          onClick={() => setArea("research")}
                         >
-                          Explorar catálogo <ArrowUpRight size={15} />
+                          Explorar substâncias <ArrowUpRight size={15} />
                         </button>
                       </div>
                       <div className="hero-foot">
@@ -368,6 +368,7 @@ export function CampoApp() {
                   </section>
                   <ReflectionCard />
                   <NatureCard />
+                  <button className="library-home-link panel" onClick={() => setArea("research")}><FlaskConical size={20} /><span><strong>Quais compostos foram relatados nesta planta?</strong><small>Explore relações com referências no LOTUS</small></span><ArrowRight size={17} /></button>
                   <button className="library-home-link panel" onClick={() => setArea("library")}><BookOpen size={20} /><span><strong>Conheça a flora do Rio Grande do Sul</strong><small>Biblioteca com fichas e fontes consultáveis</small></span><ArrowRight size={17} /></button>
                   <div className="stats-grid">
                     {[

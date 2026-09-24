@@ -1,6 +1,6 @@
 # Campo · Catálogo
 
-Aplicação web pessoal para registrar plantas e fungos, comparar possíveis identificações e preservar observações, fotografias e fontes científicas. Interface em português, escura, responsiva, sem cadastro em serviços externos para usar o catálogo.
+Aplicação web pessoal para explorar substâncias relatadas em plantas, examinar as fontes dessas relações e registrar plantas e fungos observados em campo. Permite comparar possíveis identificações e preservar observações, fotografias e evidências científicas. Interface em português, escura, responsiva, sem cadastro em serviços externos para usar o catálogo.
 
 ## Executar
 
@@ -77,7 +77,8 @@ Chaves, `.env` e senha não são exportados. Não use prefixo `NEXT_PUBLIC_` par
 - **Campo:** veja observações com coordenadas no mapa e abra o registro pela lista ou marcador.
 - **Meu caderno:** escreva páginas com título, texto e etiquetas, releia pelo índice, exporte em TXT ou arquive para consultar depois.
 - **Biblioteca:** consulte dez fichas de plantas documentadas no Rio Grande do Sul, incluindo duas visões gerais de gêneros. Cada ficha distingue composição, uso tradicional e segurança, indica a parte estudada quando conhecida e liga as afirmações às fontes. As fotos locais incluem crédito e licença do Wikimedia Commons; nos gêneros, a espécie retratada é identificada. A biblioteca é informativa e não altera o catálogo pessoal nem valida consumo por fotografia.
-- **Pesquisa → Descobertas:** investigue uma espécie na Europe PMC, revise descobertas, cadastre compostos e incorpore evidências deliberadamente.
+- **Pesquisa → Descobertas:** investigue uma espécie ou pesquise publicações que mencionem a espécie junto de um composto na Europe PMC. Revise descobertas antes de incorporar evidências. Em **Compostos**, busque no PubChem pelo nome, escolha o CID e salve fórmula e metadados químicos; vincule a espécie somente com evidência e fonte revisadas.
+- **Pesquisa → Explorar substâncias:** consulte o LOTUS por nome científico para ver compostos relatados ou por nome de composto para ver táxons relacionados. Cada relação mostra as referências disponíveis. O filtro do RS abrange somente as espécies com ficha na biblioteca, não toda a flora gaúcha. Filtros de efeito usam apenas anotações locais, separadas dos dados do LOTUS.
 - **Dados e backup:** exporte o ZIP completo regularmente.
 
 A busca global ignora acentos e caixa e abrange nomes, família, gênero, região, habitat, substrato, morfologia, propriedades, compostos, classes e alvos. Há filtros de grupo, status, período, propriedade, evidência e distância da localização atual. O catálogo é carregado em memória no navegador, adequado ao uso pessoal; paginação e índices de busca são evoluções para volumes maiores.
@@ -100,6 +101,8 @@ A consulta ao Pl@ntNet usa as primeiras cinco fotos e detecção automática do 
 | iNaturalist | Táxons e ocorrências com grau de pesquisa no Brasil ou raio de 25 km, incluindo contagem no mês |
 | speciesLink | API v1.0 do CRIA quando configurada; sem chave, link para consulta no portal |
 | Europe PMC | Até 40 artigos por consulta, pesquisando nome aceito e até sete sinônimos com os temas científicos definidos |
+| PubChem | Busca de compostos por nome via PUG REST; CID, fórmula, massa molecular e InChIKey com cache de sete dias; não exige chave |
+| LOTUS | Relações entre produtos naturais e táxons vegetais com referências; consulta iniciada pelo usuário, cache compacto de 14 dias e limite de resposta |
 | Fungos | Histórico pessoal por contexto/morfologia e, com coordenadas, até oito espécies registradas no iNaturalist a 25 km no mesmo mês |
 
 Providers separados implementam `IdentificationProvider`, `TaxonomyProvider`, `OccurrenceProvider` e `LiteratureProvider`. O cache persistente usa provider, parâmetros, consulta, resposta, criação e validade. As demais consultas têm validade de um dia. Atualizações manuais estão disponíveis na comparação, identificação e pesquisa.
@@ -109,6 +112,10 @@ Providers separados implementam `IdentificationProvider`, `TaxonomyProvider`, `O
 **Comparação:** cada candidato pode ser consultado separadamente. Ocorrências geográficas, sazonalidade e taxonomia são apresentadas sem fundir scores. A caixa GBIF/speciesLink e o raio iNaturalist são diferentes e identificados na interface. Ausência de registros não prova ausência biológica. Compatibilidade diagnóstica de habitat e morfologia exige revisão humana; não há uma porcentagem agregada ou confirmação automática.
 
 **Literatura:** resultados nunca alteram a ficha automaticamente. Incorporar exige escrever a afirmação e escolher seu tipo de evidência. Parte da planta/fungo, concentração, unidade, intervalo, método e origem da amostra ficam na relação espécie–composto, com fonte. As informações textuais do composto são anotações; suas referências são vinculadas nas evidências das espécies. Não são geradas doses nem recomendações de consumo.
+
+**PubChem:** a seleção de um resultado preenche nome e fórmula e salva seu CID no composto; classe, mecanismos, efeitos e toxicologia continuam editáveis e não são inferidos automaticamente. O PubChem identifica a substância, mas não demonstra que ela ocorre numa espécie ou em determinada parte da planta. A lista de compostos mostra separadamente as evidências vinculadas às espécies, com suas fontes. A consulta passa pelo servidor autenticado e usa cache para reduzir chamadas externas.
+
+**LOTUS:** os resultados externos permanecem na exploração até revisão; não criam automaticamente compostos, evidências ou espécies no catálogo. A busca por espécie exige correspondência exata nos táxons associados às referências; buscas `spp.` permanecem identificadas como buscas de gênero. A API pode retornar muitos dados ou demorar para táxons amplos; nesses casos a interface informa a falha e oferece consulta direta à fonte. Parte analisada, método e concentração não vêm dessa busca e precisam ser verificados nas publicações.
 
 **Privacidade:** no modo local, os dados ficam no computador. No modo Supabase, registros e fotos ficam no projeto Supabase e são acessados pelo servidor Vercel autenticado. Consultas iniciadas pelo usuário enviam nomes científicos e, quando necessário, coordenadas aos respectivos providers. Abrir o mapa carrega tiles do OpenStreetMap. O Pl@ntNet recebe fotos apenas quando acionado. Originais podem conter EXIF; ficam no armazenamento configurado (disco local ou bucket privado) e no backup completo.
 
@@ -181,6 +188,8 @@ Testes de serviço usam banco temporário e verificam registro, EXIF, histórico
 - [iNaturalist: API v1](https://api.inaturalist.org/v1/docs/)
 - [speciesLink: API v1.0](https://specieslink.net/ws/1.0/)
 - [Europe PMC: serviço REST](https://europepmc.org/RestfulWebService)
+- [PubChem: PUG REST](https://pubchem.ncbi.nlm.nih.gov/docs/pug-rest)
+- [LOTUS: documentação e API](https://lotus.naturalproducts.net/documentation)
 
 ## Reflexões na tela inicial
 

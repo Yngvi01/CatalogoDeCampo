@@ -8,12 +8,15 @@ import {
   type Species,
   type Discovery,
 } from "@/lib/validation/schemas";
-export async function investigate(id: string, refresh = false) {
+export async function investigate(id: string, refresh = false, compoundName = "") {
   const s = await get<Species>("species", id);
   if (!s) throw new Error("Espécie não encontrada.");
+  const compound = compoundName.trim().replace(/\s+/g, " ");
+  if (compound.length > 120 || (compound.length > 0 && compound.length < 2))
+    throw new Error("Informe um composto com 2 a 120 caracteres.");
   const papers = await europePMC.search(
     [s.acceptedName || s.scientificName, ...s.synonyms],
-    researchTopics,
+    compound ? [compound] : researchTopics,
     refresh,
   );
   await transaction(async () => {
@@ -38,7 +41,7 @@ export async function investigate(id: string, refresh = false) {
       id: randomUUID(),
       speciesId: id,
       query:
-        papers[0]?.query || [s.scientificName, ...researchTopics].join(" | "),
+        papers[0]?.query || [s.scientificName, ...(compound ? [compound] : researchTopics)].join(" | "),
       provider: "europe-pmc",
       createdAt: new Date().toISOString(),
       resultCount: papers.length,

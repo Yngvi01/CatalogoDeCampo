@@ -48,6 +48,8 @@ import {
 } from "@/features/backup/service";
 import { getNaturePhotos } from "@/lib/providers/pexels";
 import { getReflections } from "@/lib/providers/zenquotes";
+import { searchPubChem } from "@/lib/providers/pubchem";
+import { searchLotus } from "@/lib/providers/lotus";
 import {
   createNote,
   updateNote,
@@ -139,6 +141,12 @@ export async function GET(request: NextRequest, ctx: Context) {
     }
     if (area === "nature-photos") return json(await getNaturePhotos());
     if (area === "reflections") return json(await getReflections());
+    if (area === "pubchem" && id === "search")
+      return json(await searchPubChem(request.nextUrl.searchParams.get("q") || ""));
+    if (area === "lotus" && id === "search") {
+      const mode = z.enum(["plant", "compound"]).parse(request.nextUrl.searchParams.get("mode"));
+      return json(await searchLotus(mode, request.nextUrl.searchParams.get("q") || ""));
+    }
     if (area === "observations" && id) return json(await observationDetail(id));
     if (area === "images" && id) {
       const photo = await get<Photo>("images", id);
@@ -366,14 +374,13 @@ export async function POST(request: NextRequest, ctx: Context) {
         return json(await compare(id, value.name, value.refresh));
       }
     }
-    if (area === "species" && id && action === "investigate")
-      return json(
-        await investigate(
-          id,
-          z.object({ refresh: z.boolean().default(false) }).parse(input)
-            .refresh,
-        ),
-      );
+    if (area === "species" && id && action === "investigate") {
+      const value = z.object({
+        refresh: z.boolean().default(false),
+        compoundName: z.string().max(120).default(""),
+      }).parse(input);
+      return json(await investigate(id, value.refresh, value.compoundName));
+    }
     if (area === "compounds") {
       const record = compoundSchema.parse({
         ...input,

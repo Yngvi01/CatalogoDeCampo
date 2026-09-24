@@ -6,10 +6,13 @@ import {
   ArrowUpRight,
   BookOpen,
   RefreshCw,
+  Search,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Empty, Field, Modal, ErrorText, api, send } from "@/components/shared";
+import { Empty, Modal, ErrorText, api, send } from "@/components/shared";
 import { EvidenceForm } from "./evidence-form";
+import { CompoundForm } from "./compound-form";
+import { LotusExplorer } from "./lotus-explorer";
 import type { Catalog, Discovery } from "@/lib/validation/schemas";
 import { normalize } from "@/lib/utils";
 const discoveryStatuses: Record<string, string> = {
@@ -31,8 +34,9 @@ export function ResearchPanel({
   query: string;
   onSpecies: (id: string) => void;
 }) {
-  const [tab, setTab] = useState("discoveries"),
+  const [tab, setTab] = useState("explore"),
     [species, setSpecies] = useState(""),
+    [compoundName, setCompoundName] = useState(""),
     [status, setStatus] = useState("all"),
     [adding, setAdding] = useState(false),
     [review, setReview] = useState<Discovery | null>(null),
@@ -56,12 +60,13 @@ export function ResearchPanel({
         <FlaskConical size={32} />
         <div>
           <h3>Uma pergunta pode abrir muitos caminhos.</h3>
-          <p>Investigue nomes aceitos e sinônimos na Europe PMC. Revise cada descoberta antes de incorporá-la à ficha.</p>
+          <p>Explore relações planta–composto no LOTUS, confira substâncias no PubChem e revise os estudos na Europe PMC.</p>
         </div>
         <span className="pill">CIÊNCIA COM CONTEXTO</span>
       </div>
       <div className="catalog-toolbar">
         <div className="tabs">
+          <button className={tab === "explore" ? "active" : ""} onClick={() => setTab("explore")}><Search size={15} /> Explorar substâncias</button>
           <button
             className={tab === "discoveries" ? "active" : ""}
             onClick={() => setTab("discoveries")}
@@ -83,7 +88,7 @@ export function ResearchPanel({
           </Button>
         )}
       </div>
-      {tab === "discoveries" ? (
+      {tab === "explore" ? <LotusExplorer compounds={data.compounds} /> : tab === "discoveries" ? (
         <>
           <div className="research-controls">
             <select
@@ -110,6 +115,8 @@ export function ResearchPanel({
                 </option>
               ))}
             </select>
+            <input aria-label="Composto para investigar" list="research-compounds" value={compoundName} onChange={event => setCompoundName(event.target.value)} placeholder="Composto (opcional)" maxLength={120} />
+            <datalist id="research-compounds">{data.compounds.map(compound => <option value={compound.name} key={compound.id} />)}</datalist>
             <Button
               size="sm"
               disabled={!species || busy}
@@ -119,11 +126,11 @@ export function ResearchPanel({
                 try {
                   const r = await api<{ count: number }>(
                     `species/${species}/investigate`,
-                    send({ refresh: true }),
+                    send({ refresh: true, compoundName: compoundName.trim() }),
                   );
                   await refresh();
                   setNotice(
-                    `${r.count} resultados consultados; descobertas já existentes foram preservadas.`,
+                    `${r.count} resultados consultados${compoundName.trim() ? ` para ${compoundName.trim()}` : ""}; descobertas já existentes foram preservadas.`,
                   );
                 } catch (e) {
                   setError((e as Error).message);
@@ -133,7 +140,7 @@ export function ResearchPanel({
               }}
             >
               <RefreshCw size={14} />
-              {busy ? "Investigando…" : "Investigar espécie"}
+              {busy ? "Investigando…" : compoundName.trim() ? "Investigar planta + composto" : "Investigar espécie"}
             </Button>
           </div>
           {discoveries.length ? (
@@ -223,6 +230,9 @@ export function ResearchPanel({
               </span>
               <h3>{c.name}</h3>
               <code>{c.formula}</code>
+              {c.pubchemCid && <p><a href={`https://pubchem.ncbi.nlm.nih.gov/compound/${c.pubchemCid}`} target="_blank" rel="noreferrer">PubChem CID {c.pubchemCid} <ArrowUpRight size={13} /></a></p>}
+              {c.molecularWeight && <p>Massa molecular: {c.molecularWeight} g/mol</p>}
+              {c.inchiKey && <p>InChIKey: <code>{c.inchiKey}</code></p>}
               <p>{c.description}</p>
               <dl>
                 {[
@@ -240,10 +250,16 @@ export function ResearchPanel({
                     </div>
                   ))}
               </dl>
-              <small>
-                {data.evidence.filter((e) => e.compoundId === c.id).length}{" "}
-                evidências vinculadas nas fichas das espécies
-              </small>
+              {(() => {
+                const linked = data.evidence.filter(e => e.compoundId === c.id);
+                return <div className="compound-evidence"><strong>{linked.length} {linked.length === 1 ? "evidência vinculada" : "evidências vinculadas"}</strong>
+                  {linked.length ? linked.map(e => <div key={e.id}>
+                    <button type="button" className="text-button" onClick={() => onSpecies(e.speciesId)}>{data.species.find(s => s.id === e.speciesId)?.scientificName || "Espécie"}</button>
+                    <p>{e.claim}</p>
+                    {e.url && <a href={e.url} target="_blank" rel="noreferrer">{e.source || "Fonte"} <ArrowUpRight size={12} /></a>}
+                  </div>) : <p>Sem vínculo documentado com uma espécie. Cadastre uma evidência na ficha da planta.</p>}
+                </div>;
+              })()}
             </article>
           ))}
         </div>
@@ -251,7 +267,7 @@ export function ResearchPanel({
         <Empty
           icon={<FlaskConical size={32} />}
           title="Compostos, com suas fontes."
-          text="Cadastre compostos e vincule-os a espécies por evidências, partes analisadas e métodos."
+          text="Busque um composto no PubChem ou cadastre-o manualmente. Depois, vincule-o a plantas por evidências, partes analisadas e métodos."
           action={
             <Button variant="outline" onClick={() => setAdding(true)}>
               <Plus size={15} /> Cadastrar composto
@@ -262,68 +278,10 @@ export function ResearchPanel({
       {adding && (
         <Modal
           title="Novo composto"
-          subtitle="Organize informações químicas; associe referências pelas evidências da espécie."
+          subtitle="Consulte o PubChem ou cadastre manualmente; associe plantas por evidências da espécie."
           onClose={() => setAdding(false)}
         >
-          <form
-            onSubmit={async (e) => {
-              e.preventDefault();
-              const f = new FormData(e.currentTarget);
-              const value: Record<string, unknown> = {};
-              for (const k of [
-                "name",
-                "chemicalClass",
-                "formula",
-                "description",
-                "mechanisms",
-                "targets",
-                "effects",
-                "toxicology",
-              ])
-                value[k] = String(f.get(k) || "");
-              value.synonyms = String(f.get("synonyms") || "")
-                .split(";")
-                .map((s) => s.trim())
-                .filter(Boolean);
-              setBusy(true);
-              setError("");
-              try {
-                await api("compounds", send(value));
-                await refresh();
-                setAdding(false);
-              } catch (e) {
-                setError((e as Error).message);
-              } finally {
-                setBusy(false);
-              }
-            }}
-          >
-            <div className="form-grid">
-              {[
-                ["name", "Nome"],
-                ["synonyms", "Sinônimos (;)"],
-                ["chemicalClass", "Classe química"],
-                ["formula", "Fórmula"],
-                ["targets", "Alvos"],
-              ].map(([k, l]) => (
-                <Field label={l} key={k}>
-                  <input name={k} required={k === "name"} />
-                </Field>
-              ))}
-            </div>
-            {[
-              ["description", "Descrição"],
-              ["mechanisms", "Mecanismos"],
-              ["effects", "Efeitos descritos"],
-              ["toxicology", "Toxicologia"],
-            ].map(([k, l]) => (
-              <Field label={l} key={k}>
-                <textarea name={k} />
-              </Field>
-            ))}
-            <ErrorText message={error} />
-            <Button disabled={busy}>Salvar composto</Button>
-          </form>
+          <CompoundForm onSaved={async () => { await refresh(); setAdding(false); }} />
         </Modal>
       )}
       {review && (

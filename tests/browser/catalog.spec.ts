@@ -61,6 +61,10 @@ test("catálogo real: login, foto, confirmação, busca, evidência e backup", a
   await page.getByRole("button", { name: "Limpar busca" }).click();
   await page.getByRole("button", { name: "Catálogo", exact: true }).click();
   await page.getByRole("heading", { name: "Passiflora edulis" }).click();
+  await dialog.getByRole("button", { name: "Ver gênero na biblioteca" }).click();
+  const libraryDetail = page.getByRole("dialog").last();
+  await expect(libraryDetail.getByRole("heading", { name: "Maracujás-do-mato" })).toBeVisible();
+  await libraryDetail.getByRole("button", { name: "Fechar" }).click();
   await dialog.getByRole("button", { name: "Evidência", exact: true }).click();
   await dialog
     .getByLabel("Afirmação / informação")

@@ -156,8 +156,11 @@ test("Descobertas são deduplicadas e exigem incorporação explícita", async (
     });
   await investigate(species.id);
   await investigate(species.id);
+  await investigate(species.id, false, "caffeine");
   assert.equal((await snapshot()).discoveries.length, 1);
-  assert.equal((await snapshot()).research.length, 2);
+  assert.equal((await snapshot()).research.length, 3);
+  assert.match((await snapshot()).research[2].query, /caffeine/);
+  await assert.rejects(() => investigate(species.id, false, "x"), /2 a 120/);
   assert.equal((await snapshot()).evidence.length, 0);
   assert.equal((await snapshot()).species[0].description, "");
   const d = (await snapshot()).discoveries[0];

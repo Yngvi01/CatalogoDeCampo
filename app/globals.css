@@ -218,6 +218,7 @@ small {
   flex-direction: column;
   padding: 34px 20px 24px;
   z-index: 20;
+  overflow-y: auto;
 }
 .brand {
   display: flex;
@@ -346,6 +347,10 @@ small {
   font-size: 9px;
   color: #68755f;
   margin-left: 13px;
+}
+@media (max-height: 820px) and (min-width: 601px) {
+  .sidebar-note { display: none; }
+  .sidebar-bottom { margin-top: auto; }
 }
 .main-shell {
   width: calc(100% - 224px);
@@ -1368,6 +1373,7 @@ details > summary {
 .research-controls {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 12px;
   margin-bottom: 24px;
 }
@@ -1375,6 +1381,7 @@ details > summary {
   font-size: 11px;
   max-width: 280px;
 }
+.research-controls input { min-width: 170px; max-width: 260px; font-size: 11px; }
 .discovery-list {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1823,6 +1830,7 @@ details > summary {
   .research-controls select {
     flex: 1;
   }
+  .research-controls input { flex: 1; }
   .research-controls button {
     width: 100%;
   }
@@ -2278,6 +2286,7 @@ details > summary {
     flex: auto;
     font-size: 12px;
   }
+  .research-controls input { max-width: none; width: 100%; flex: auto; font-size: 12px; }
   .discovery-card {
     padding: 17px;
   }
@@ -2790,3 +2799,55 @@ details > summary {
 .library-home-link strong { font-size: 14px; }
 .library-home-link small { color: var(--muted); font-size: 11px; }
 .library-home-link > svg:first-child { color: #a6bd80; }
+.pubchem-search { display: flex; align-items: end; gap: 10px; margin-bottom: 14px; }
+.pubchem-search .field { flex: 1; margin: 0; min-width: 0; }
+.pubchem-search .button { flex: none; }
+.pubchem-results { display: grid; gap: 7px; max-height: 240px; overflow-y: auto; margin-bottom: 12px; }
+.pubchem-results > p { font-size: 12px; color: var(--muted); }
+.pubchem-results > button { display: grid; gap: 4px; text-align: left; border: 1px solid var(--border); border-radius: 7px; padding: 10px; }
+.pubchem-results > button:hover, .pubchem-results > button.selected { border-color: var(--accent); background: #a6bd8010; }
+.pubchem-results > button span, .pubchem-selected { color: var(--muted); font-size: 11px; overflow-wrap: anywhere; }
+.pubchem-selected a, .compound-card a { color: var(--accent); text-decoration: underline; text-underline-offset: 3px; }
+.pubchem-selected a, .compound-card a { display: inline-flex; align-items: center; gap: 3px; }
+.compound-evidence { border-top: 1px solid var(--border); padding-top: 14px; margin-top: 20px; font-size: 12px; }
+.compound-evidence > strong { display: block; margin-bottom: 10px; }
+.compound-evidence > div { border-top: 1px solid var(--border); padding: 9px 0; overflow-wrap: anywhere; }
+.compound-evidence p { margin: 4px 0 7px; line-height: 1.5; }
+@media (max-width: 600px) { .pubchem-search { align-items: stretch; flex-direction: column; } }
+.lotus-intro { display: flex; align-items: flex-start; gap: 16px; padding: 22px; margin-bottom: 18px; }
+.lotus-intro > svg { color: var(--accent); flex: none; }
+.lotus-intro h2 { margin: 0 0 7px; font: 25px Georgia, serif; }
+.lotus-intro p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.6; }
+.lotus-modes { display: flex; gap: 8px; margin-bottom: 14px; }
+.lotus-modes button { display: inline-flex; align-items: center; gap: 8px; padding: 10px 13px; border: 1px solid var(--border); border-radius: 7px; font-size: 12px; }
+.lotus-modes button.active { border-color: var(--accent); background: #a6bd8016; color: var(--accent); }
+.lotus-search { display: flex; gap: 10px; margin-bottom: 10px; }
+.lotus-search label { display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1; border: 1px solid var(--border); border-radius: 7px; padding: 0 12px; }
+.lotus-search input { flex: 1; min-width: 0; border: 0; background: transparent; padding: 11px 0; outline: 0; }
+.lotus-suggestions, .lotus-effect-filter { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; font-size: 11px; margin: 10px 0 14px; }
+.lotus-suggestions span, .lotus-effect-filter span { color: var(--muted); }
+.lotus-suggestions button, .lotus-effect-filter button { border: 1px solid var(--border); border-radius: 6px; padding: 6px 9px; }
+.lotus-effect-filter button.active { color: #192519; background: var(--accent); }
+.lotus-rs-filter { display: flex; align-items: center; gap: 8px; font-size: 12px; margin: 13px 0; }
+.lotus-rs-filter input { width: auto; }
+.lotus-caveat { max-width: 900px; color: var(--muted); font-size: 11px; line-height: 1.7; margin: 0 0 22px; }
+.lotus-count { color: var(--muted); font-size: 12px; margin: 12px 0; }
+.lotus-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-bottom: 18px; }
+.lotus-hit { min-width: 0; padding: 20px; }
+.lotus-hit-heading { display: flex; justify-content: space-between; gap: 15px; overflow-wrap: anywhere; }
+.lotus-hit-heading h3 { font: 22px Georgia, serif; margin: 7px 0 5px; }
+.lotus-hit-heading p { color: var(--muted); font-size: 11px; line-height: 1.5; }
+.lotus-hit-heading > a { color: var(--accent); }
+.lotus-local-effect { color: var(--accent); font-size: 11px; line-height: 1.5; }
+.lotus-occurrences { border-top: 1px solid var(--border); padding-top: 12px; margin-top: 16px; }
+.lotus-occurrences > strong { font-size: 12px; }
+.lotus-taxon { border-top: 1px solid var(--border); padding: 10px 0; font-size: 12px; overflow-wrap: anywhere; }
+.lotus-taxon > div:first-child { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; }
+.lotus-taxon .badge { font-size: 9px; }
+.lotus-references { display: flex; flex-wrap: wrap; gap: 7px 12px; margin-top: 7px; color: var(--muted); font-size: 10px; }
+.lotus-references a { display: inline-flex; align-items: center; gap: 2px; color: var(--accent); text-decoration: underline; }
+.lotus-occurrences details { margin-top: 10px; font-size: 11px; }
+.lotus-occurrences summary { cursor: pointer; color: var(--accent); }
+.lotus-empty { padding: 22px; color: var(--muted); font-size: 12px; }
+@media (max-width: 900px) { .lotus-grid { grid-template-columns: 1fr; } }
+@media (max-width: 600px) { .lotus-intro { padding: 16px; } .lotus-intro h2 { font-size: 21px; } .lotus-modes button { flex: 1; padding: 9px; font-size: 10px; } .lotus-search { flex-direction: column; } }

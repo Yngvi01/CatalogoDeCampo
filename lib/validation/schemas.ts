@@ -121,6 +121,9 @@ export const historySchema = z.object({
 export const compoundSchema = z.object({
   id,
   name: z.string().min(1).max(250),
+  pubchemCid: z.number().int().positive().nullable().optional(),
+  molecularWeight: z.string().max(100).optional(),
+  inchiKey: z.string().max(100).optional(),
   synonyms: z.array(short),
   chemicalClass: short,
   formula: short,
