@@ -34,7 +34,7 @@ Os comandos padrão escutam somente em `127.0.0.1`. Os comandos `:lan` exigem se
 
 **PWA e localização no celular exigem HTTPS confiável.** `localhost` no próprio computador é uma exceção dos navegadores. HTTP pelo IP da rede permite consultar o catálogo e enviar fotos, mas pode bloquear geolocalização e instalação da PWA. Para essas funções, coloque um proxy HTTPS local com certificado confiável pelo celular na frente do servidor. A seleção de câmera depende do navegador e do sistema operacional. Coordenadas também podem ser informadas manualmente.
 
-Não há sincronização offline nesta versão. O service worker oferece uma tela de indisponibilidade e não guarda o catálogo privado em cache. O computador precisa estar ligado para consultar e salvar observações pelo celular.
+Depois de abrir o app ao menos uma vez com conexão, o service worker pode abrir uma página de captura offline: fotos, data, local e notas podem ser guardados como rascunho no IndexedDB deste navegador. Quando a rede voltar, abra **Rascunhos no aparelho → Continuar rascunho**, identifique a observação e escolha quais fotos enviar ao catálogo (inclusive nenhuma). O envio é manual; não há sincronização automática nem consulta aos provedores offline. O catálogo privado não é guardado no cache do service worker. Rascunhos não entram no backup do catálogo até serem enviados e podem desaparecer se os dados do site forem apagados. O computador precisa estar ligado para consultar ou salvar no servidor pelo celular.
 
 ## Configuração
 
@@ -79,6 +79,8 @@ Chaves, `.env` e senha não são exportados. Não use prefixo `NEXT_PUBLIC_` par
 - **Biblioteca:** consulte dez fichas de plantas documentadas no Rio Grande do Sul, incluindo duas visões gerais de gêneros. Cada ficha distingue composição, uso tradicional e segurança, indica a parte estudada quando conhecida e liga as afirmações às fontes. As fotos locais incluem crédito e licença do Wikimedia Commons; nos gêneros, a espécie retratada é identificada. A biblioteca é informativa e não altera o catálogo pessoal nem valida consumo por fotografia.
 - **Pesquisa → Descobertas:** investigue uma espécie ou pesquise publicações que mencionem a espécie junto de um composto na Europe PMC. Revise descobertas antes de incorporar evidências. Em **Compostos**, busque no PubChem pelo nome, escolha o CID e salve fórmula e metadados químicos; vincule a espécie somente com evidência e fonte revisadas.
 - **Pesquisa → Explorar substâncias:** consulte o LOTUS por nome científico para ver compostos relatados ou por nome de composto para ver táxons relacionados. Abra a publicação e use **Revisar esta relação** para registrar a afirmação, tipo de evidência e fonte; só então a espécie, o composto e a evidência entram no catálogo. O filtro do RS abrange somente as espécies com ficha na biblioteca, não toda a flora gaúcha. Filtros de efeito usam apenas registros estruturados com fonte, separados dos dados do LOTUS.
+- **Pesquisa → Para revisar:** guarde relações candidatas do LOTUS para voltar às referências depois. Elas entram no backup, mas não contam como evidência. Após revisão e incorporação, saem automaticamente da lista; também é possível removê-las manualmente.
+- **Pesquisa → Mapa de evidências:** escolha um composto para ver as espécies vinculadas, afirmações, fontes, parte, método e concentração informados. Efeitos estudados aparecem em coluna separada, com contexto e fonte. Campos ausentes são indicados, sem atribuir automaticamente efeito à planta.
 - **Dados e backup:** exporte o ZIP completo regularmente.
 
 A busca global ignora acentos e caixa e abrange nomes, família, gênero, região, habitat, substrato, morfologia, propriedades, compostos, classes e alvos. Há filtros de grupo, status, período, propriedade, evidência e distância da localização atual. O catálogo é carregado em memória no navegador, adequado ao uso pessoal; paginação e índices de busca são evoluções para volumes maiores.
@@ -166,7 +168,7 @@ lib/providers/          Adaptadores independentes e cache
 
 O repositório assíncrono usa SQLite com WAL no modo local e PostgreSQL com pool de transações no Supabase. Ambos preservam chaves estrangeiras e documentos validados. Transações PostgreSQL usam um lock compartilhado entre instâncias para numeração e alterações concorrentes. SQLite não deve ser compartilhado entre várias instâncias nem colocado em filesystem de rede.
 
-A entrega reúne o fluxo MVP, fontes externas, pesquisa científica e assistência contextual inicial para fungos. Próximas evoluções: modelo visual local de fungos, pesquisa paginada para grandes catálogos, backup em streaming e criação offline. O sistema continua utilizável sem essas extensões.
+A entrega reúne o fluxo MVP, fontes externas, pesquisa científica, rascunhos de campo offline e assistência contextual inicial para fungos. Próximas evoluções: modelo visual local de fungos, pesquisa paginada para grandes catálogos e backup em streaming.
 
 ## Verificação
 

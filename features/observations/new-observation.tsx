@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Camera,
   ImagePlus,
@@ -20,6 +20,7 @@ import type { Candidate } from "@/lib/validation/schemas";
 import { uploadDirect } from "@/lib/http/upload";
 import { PhotoGuide, photoOrgans } from "@/features/identification/photo-guide";
 import { CandidateComparison } from "@/features/identification/candidate-comparison";
+import { deleteDraft, putDraft, type OfflineDraft } from "@/lib/offline/drafts";
 const fungalFields = [
   "Píleo",
   "Cor",
@@ -37,14 +38,25 @@ const fungalFields = [
   "Mudança de cor",
   "Plantas associadas",
 ];
+function localDateTime(iso: string) {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "";
+  const pad = (value: number) => String(value).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
 export function NewObservation({
   onClose,
   onSaved,
+  draft,
+  onDraftSaved,
 }: {
   onClose: () => void;
-  onSaved: (id: string, message?: string) => void;
+  onSaved: (id: string, message?: string) => void | Promise<void>;
+  draft?: OfflineDraft | null;
+  onDraftSaved?: () => void | Promise<void>;
 }) {
-  const [organs, setOrgans] = useState<string[]>([]);
+  const formRef = useRef<HTMLFormElement>(null);
+  const [organs, setOrgans] = useState<string[]>(draft?.photos.map(photo => photo.organ) || []);
   const [result, setResult] = useState<{
     receipt: string;
     candidates: Candidate[];
@@ -53,11 +65,11 @@ export function NewObservation({
   const [selectedPhotos, setSelectedPhotos] = useState<number[]>([]);
   const [failed, setFailed] = useState(false);
   const [finished, setFinished] = useState(false);
-  const [group, setGroup] = useState<"plant" | "fungus">("plant"),
-    [photos, setPhotos] = useState<File[]>([]),
+  const [group, setGroup] = useState<"plant" | "fungus">(draft?.data.group || "plant"),
+    [photos, setPhotos] = useState<File[]>(draft?.photos.map(photo => new File([photo.blob], photo.name, { type: photo.type, lastModified: photo.lastModified })) || []),
     [previews, setPreviews] = useState<string[]>([]),
-    [lat, setLat] = useState(""),
-    [lon, setLon] = useState(""),
+    [lat, setLat] = useState(draft?.data.latitude === null || draft?.data.latitude === undefined ? "" : String(draft.data.latitude)),
+    [lon, setLon] = useState(draft?.data.longitude === null || draft?.data.longitude === undefined ? "" : String(draft.data.longitude)),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false),
     [locating, setLocating] = useState(false);
@@ -69,6 +81,42 @@ export function NewObservation({
   const add = (files: FileList | null) => {
     if (files) setPhotos((p) => [...p, ...Array.from(files)].slice(0, 5));
   };
+  const collectData = (form: HTMLFormElement): OfflineDraft["data"] => {
+    const fields = new FormData(form);
+    if (Boolean(lat) !== Boolean(lon)) throw new Error("Informe latitude e longitude juntas.");
+    const observedAt = fields.get("observedAt")
+      ? new Date(String(fields.get("observedAt"))).toISOString()
+      : draft?.data.observedAt || new Date().toISOString();
+    return {
+      group, observedAt,
+      latitude: lat ? Number(lat) : null,
+      longitude: lon ? Number(lon) : null,
+      region: String(fields.get("region") || ""),
+      habitat: String(fields.get("habitat") || ""),
+      substrate: String(fields.get("substrate") || ""),
+      vegetation: String(fields.get("vegetation") || ""),
+      light: String(fields.get("light") || ""),
+      notes: String(fields.get("notes") || ""),
+      altitude: fields.get("altitude") ? Number(fields.get("altitude")) : null,
+      morphology: Object.fromEntries(fungalFields.map(label => [label, String(fields.get(`m-${label}`) || "")]).filter(([, value]) => value)),
+    };
+  };
+  const saveDraft = async () => {
+    if (!formRef.current) return;
+    setBusy(true); setError("");
+    try {
+      if (!photos.length || photos.length > 5 || photos.some(photo => !photo.size || photo.size > 20 * 1024 * 1024 || !["image/jpeg", "image/png", "image/webp"].includes(photo.type)))
+        throw new Error("Escolha de 1 a 5 fotos JPEG, PNG ou WebP, com até 20 MB cada.");
+      const now = new Date().toISOString();
+      await putDraft({
+        id: draft?.id || globalThis.crypto?.randomUUID?.() || `draft-${Date.now()}-${Math.random().toString(36).slice(2)}`, createdAt: draft?.createdAt || now, updatedAt: now,
+        data: collectData(formRef.current),
+        photos: photos.map((photo, index) => ({ blob: photo, name: photo.name, type: photo.type, lastModified: photo.lastModified, organ: group === "plant" ? organs[index] || "auto" : "auto" })),
+      });
+      await onDraftSaved?.();
+    } catch (cause) { setError((cause as Error).message); }
+    finally { setBusy(false); }
+  };
   return (
     <Modal
       title="Nova observação"
@@ -79,7 +127,7 @@ export function NewObservation({
       wide
     >
       {!result ? (
-        <form
+        <form ref={formRef}
           onSubmit={async (e) => {
             e.preventDefault();
             if (!photos.length) {
@@ -89,33 +137,7 @@ export function NewObservation({
             setBusy(true);
             setError("");
             try {
-              const fields = new FormData(e.currentTarget);
-              const data: Record<string, unknown> = {
-                group,
-                latitude: lat ? Number(lat) : null,
-                longitude: lon ? Number(lon) : null,
-              };
-              for (const key of [
-                "region",
-                "habitat",
-                "substrate",
-                "vegetation",
-                "light",
-                "notes",
-              ])
-                data[key] = fields.get(key) || "";
-              data.altitude = fields.get("altitude")
-                ? Number(fields.get("altitude"))
-                : null;
-              if (fields.get("observedAt"))
-                data.observedAt = new Date(
-                  String(fields.get("observedAt")),
-                ).toISOString();
-              data.morphology = Object.fromEntries(
-                fungalFields
-                  .map((k) => [k, String(fields.get(`m-${k}`) || "")])
-                  .filter(([, v]) => v),
-              );
+              const data = collectData(e.currentTarget);
               if (photos.some((p) => !p.size || p.size > 20 * 1024 * 1024))
                 throw new Error("Cada foto deve ter até 20 MB.");
               const manual =
@@ -232,13 +254,14 @@ export function NewObservation({
                 <input
                   name="region"
                   placeholder="Ex.: Serra da Mantiqueira, MG"
+                  defaultValue={draft?.data.region || ""}
                 />
               </Field>
               <Field
                 label="Data e hora"
                 hint="Deixe vazio para registrar o momento atual."
               >
-                <input name="observedAt" type="datetime-local" />
+                <input name="observedAt" type="datetime-local" defaultValue={draft ? localDateTime(draft.data.observedAt) : ""} />
               </Field>
             </div>
             <details className="form-details">
@@ -310,6 +333,7 @@ export function NewObservation({
                       placeholder={placeholder}
                       type={name === "altitude" ? "number" : "text"}
                       step="any"
+                      defaultValue={String(draft?.data[name as keyof OfflineDraft["data"]] ?? "")}
                     />
                   </Field>
                 ))}
@@ -323,7 +347,7 @@ export function NewObservation({
                 <div className="form-grid">
                   {fungalFields.map((label) => (
                     <Field label={label} key={label}>
-                      <input name={`m-${label}`} />
+                      <input name={`m-${label}`} defaultValue={draft?.data.morphology[label] || ""} />
                     </Field>
                   ))}
                 </div>
@@ -334,13 +358,14 @@ export function NewObservation({
                 name="notes"
                 rows={3}
                 placeholder="O que chamou sua atenção?"
+                defaultValue={draft?.data.notes || ""}
               />
             </Field>
             <ErrorText message={error} />
             <div className="modal-footer">
-              <span className="muted">
-                As fotos não são salvas nesta etapa.
-              </span>
+              <Button type="button" variant="outline" disabled={busy} onClick={() => void saveDraft()}>
+                Guardar rascunho neste aparelho
+              </Button>
               <Button type="submit" disabled={busy}>
                 {busy ? (
                   <LoaderCircle size={16} className="spin" />
@@ -449,11 +474,16 @@ export function NewObservation({
                     options,
                   );
                   setFinished(true);
-                  onSaved(
+                  let draftNotice = "";
+                  if (draft) {
+                    try { await deleteDraft(draft.id); }
+                    catch { draftNotice = " O rascunho local não pôde ser removido; descarte-o manualmente para evitar duplicação."; }
+                  }
+                  await onSaved(
                     saved.observation.id,
                     selected.length
-                      ? `Observação salva com ${selected.length} foto(s) escolhida(s).`
-                      : "Observação salva sem fotos.",
+                      ? `Observação salva com ${selected.length} foto(s) escolhida(s).${draftNotice}`
+                      : `Observação salva sem fotos.${draftNotice}`,
                   );
                 } catch (e) {
                   setError((e as Error).message);

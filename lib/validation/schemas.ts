@@ -159,6 +159,17 @@ export const compoundSchema = z.object({
   toxicology: long,
   createdAt: time,
 });
+export const lotusBookmarkSchema = z.object({
+  id,
+  lotusId: z.string().regex(/^LTS\d{5,12}$/),
+  compoundName: z.string().trim().min(1).max(250),
+  formula: short,
+  inchiKey: z.string().max(100),
+  chemicalClass: short,
+  scientificName: z.string().trim().min(3).max(250),
+  references: z.array(z.object({ label: short, url: httpUrl.nullable() })).max(8),
+  createdAt: time,
+});
 export const evidenceSchema = z.object({
   id,
   speciesId: id,
@@ -243,6 +254,7 @@ export const exportDataSchema = z.object({
   identifications: z.array(identificationSchema),
   history: z.array(historySchema),
   compounds: z.array(compoundSchema),
+  bookmarks: z.array(lotusBookmarkSchema).default([]),
   evidence: z.array(evidenceSchema),
   discoveries: z.array(discoverySchema),
   research: z.array(researchSchema),
@@ -271,6 +283,7 @@ export type Photo = z.infer<typeof imageSchema>;
 export type Candidate = z.infer<typeof candidateSchema>;
 export type Identification = z.infer<typeof identificationSchema>;
 export type Compound = z.infer<typeof compoundSchema>;
+export type LotusBookmark = z.infer<typeof lotusBookmarkSchema>;
 export type EffectClaim = z.infer<typeof effectClaimSchema>;
 export type Evidence = z.infer<typeof evidenceSchema>;
 export type Discovery = z.infer<typeof discoverySchema>;
@@ -279,6 +292,7 @@ export type Catalog = {
   species: Species[];
   observations: (Observation & { photos: Photo[] })[];
   compounds: Compound[];
+  bookmarks: LotusBookmark[];
   evidence: Evidence[];
   discoveries: Discovery[];
   notes: Note[];

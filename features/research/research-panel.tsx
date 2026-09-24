@@ -7,12 +7,15 @@ import {
   BookOpen,
   RefreshCw,
   Search,
+  Bookmark,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Empty, Modal, ErrorText, api, send } from "@/components/shared";
 import { EvidenceForm } from "./evidence-form";
 import { CompoundForm } from "./compound-form";
 import { LotusExplorer } from "./lotus-explorer";
+import { LotusBookmarks } from "./lotus-bookmarks";
+import { EvidenceMap } from "./evidence-map";
 import { EffectForm } from "./effect-form";
 import { effectLabels, contextLabels } from "./effects";
 import { evidenceLabels } from "@/components/shared";
@@ -71,6 +74,8 @@ export function ResearchPanel({
       <div className="catalog-toolbar">
         <div className="tabs">
           <button className={tab === "explore" ? "active" : ""} onClick={() => setTab("explore")}><Search size={15} /> Explorar substâncias</button>
+          <button className={tab === "map" ? "active" : ""} onClick={() => setTab("map")}><FlaskConical size={15} /> Mapa de evidências</button>
+          <button className={tab === "bookmarks" ? "active" : ""} onClick={() => setTab("bookmarks")}><Bookmark size={15} /> Para revisar <span>{data.bookmarks.length}</span></button>
           <button
             className={tab === "discoveries" ? "active" : ""}
             onClick={() => setTab("discoveries")}
@@ -92,7 +97,7 @@ export function ResearchPanel({
           </Button>
         )}
       </div>
-      {tab === "explore" ? <LotusExplorer compounds={data.compounds} onReviewed={async () => { await refresh(); setNotice("Relação revisada incorporada ao catálogo."); }} /> : tab === "discoveries" ? (
+      {tab === "explore" ? <LotusExplorer compounds={data.compounds} bookmarks={data.bookmarks} onReviewed={async () => { await refresh(); setNotice("Relação revisada incorporada ao catálogo."); }} onBookmarkSaved={async () => { await refresh(); setNotice("Relação guardada em Para revisar."); }} /> : tab === "map" ? <EvidenceMap data={data} query={query} onSpecies={onSpecies} /> : tab === "bookmarks" ? <LotusBookmarks bookmarks={data.bookmarks} refresh={refresh} onReviewed={() => setNotice("Relação revisada incorporada ao catálogo.")} /> : tab === "discoveries" ? (
         <>
           <div className="research-controls">
             <select

@@ -13,6 +13,7 @@ export const tableNames = [
   "identifications",
   "history",
   "compounds",
+  "bookmarks",
   "evidence",
   "discoveries",
   "research",
@@ -102,6 +103,7 @@ export async function catalog() {
       }))
       .sort((a, b) => b.observedAt.localeCompare(a.observedAt)),
     compounds: data.compounds,
+    bookmarks: data.bookmarks,
     evidence: data.evidence,
     discoveries: data.discoveries,
     notes: data.notes,

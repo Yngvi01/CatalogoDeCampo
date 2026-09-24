@@ -5,6 +5,7 @@ import type {
   Photo,
   Identification,
   Compound,
+  LotusBookmark,
   Evidence,
   Discovery,
   Note,
@@ -43,6 +44,10 @@ export const history = sqliteTable("history", {
 export const compounds = sqliteTable("compounds", {
   id: text("id").primaryKey(),
   data: text("data", { mode: "json" }).$type<Compound>().notNull(),
+});
+export const bookmarks = sqliteTable("bookmarks", {
+  id: text("id").primaryKey(),
+  data: text("data", { mode: "json" }).$type<LotusBookmark>().notNull(),
 });
 export const evidence = sqliteTable("evidence", {
   id: text("id").primaryKey(),

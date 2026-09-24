@@ -1,6 +1,6 @@
 import { randomUUID, createHash } from "node:crypto";
 import { get, list, put } from "@/lib/db/repository";
-import { transaction } from "@/lib/db";
+import { query, transaction } from "@/lib/db";
 import { europePMC, researchTopics } from "@/lib/providers/europe-pmc";
 import {
   evidenceSchema,
@@ -8,10 +8,12 @@ import {
   compoundSchema,
   speciesSchema,
   effectClaimSchema,
+  lotusBookmarkSchema,
   evidenceTypes,
   type Species,
   type Discovery,
   type Compound,
+  type LotusBookmark,
 } from "@/lib/validation/schemas";
 import { normalize } from "@/lib/utils";
 import { z } from "zod";
@@ -36,6 +38,38 @@ const lotusReviewInput = z.object({
   reviewed: z.literal(true),
 });
 
+const bookmarkInput = lotusBookmarkSchema.omit({ id: true, createdAt: true });
+
+export async function saveLotusBookmark(input: unknown) {
+  const value = bookmarkInput.parse(input);
+  if (!/^\S+\s+\S+/.test(value.scientificName) || /\bspp?\.?$/i.test(value.scientificName))
+    throw new Error("Guarde uma relação com espécie identificada, não somente um gênero.");
+  return transaction(async () => {
+    const bookmarks = await list<LotusBookmark>("bookmarks");
+    const existing = bookmarks.find(item => item.lotusId === value.lotusId && normalize(item.scientificName) === normalize(value.scientificName));
+    if (existing) return { bookmark: existing, existing: true };
+    if (bookmarks.length >= 500) throw new Error("A lista de revisão chegou ao limite de 500 relações.");
+    const bookmark = lotusBookmarkSchema.parse({ ...value, id: randomUUID(), createdAt: new Date().toISOString() });
+    await put("bookmarks", bookmark);
+    return { bookmark, existing: false };
+  });
+}
+
+export async function removeLotusBookmark(id: string) {
+  return transaction(async () => {
+    if (!await get("bookmarks", id)) throw new Error("Relação pendente não encontrada.");
+    await query("DELETE FROM bookmarks WHERE id = $1", [id]);
+    return { ok: true };
+  });
+}
+
+async function clearReviewedBookmark(lotusId: string, scientificName: string) {
+  const bookmarks = await list<LotusBookmark>("bookmarks");
+  for (const item of bookmarks)
+    if (item.lotusId === lotusId && normalize(item.scientificName) === normalize(scientificName))
+      await query("DELETE FROM bookmarks WHERE id = $1", [item.id]);
+}
+
 export async function reviewLotus(input: unknown) {
   const value = lotusReviewInput.parse(input);
   return transaction(async () => {
@@ -56,7 +90,10 @@ export async function reviewLotus(input: unknown) {
     });
     const duplicate = (await list<z.infer<typeof evidenceSchema>>("evidence")).find(item =>
       item.speciesId === plant.id && item.compoundId === chemical.id && item.url === value.url && normalize(item.claim) === normalize(value.claim));
-    if (duplicate) return { species: plant, compound: chemical, evidence: duplicate, existing: true };
+    if (duplicate) {
+      await clearReviewedBookmark(value.lotusId, value.scientificName);
+      return { species: plant, compound: chemical, evidence: duplicate, existing: true };
+    }
     const evidence = evidenceSchema.parse({
       id: randomUUID(), speciesId: plant.id, compoundId: chemical.id, property: "composição química",
       claim: value.claim, type: value.type, origin: "publication", source: value.source, url: value.url,
@@ -68,6 +105,7 @@ export async function reviewLotus(input: unknown) {
     if (!species) await put("species", plant);
     if (!compound) await put("compounds", chemical);
     await put("evidence", evidence);
+    await clearReviewedBookmark(value.lotusId, value.scientificName);
     return { species: plant, compound: chemical, evidence, existing: false };
   });
 }

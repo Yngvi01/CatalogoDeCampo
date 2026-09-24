@@ -49,3 +49,30 @@ test("efeitos estruturados exigem fonte, preservam texto legado e podem ser excl
   await research.removeCompoundEffect(compound.id, effect.id);
   assert.equal((await repo.snapshot()).compounds[0].effectClaims.length, 0);
 });
+
+test("relações guardadas entram no backup sem virar evidência e saem da lista após revisão", async () => {
+  const [research, repo] = await setup;
+  const backup = await import("../features/backup/service");
+  const candidate = {
+    lotusId: "LTS1234567", compoundName: "harmine", formula: "C13H12N2O", inchiKey: "ANOTHER-KEY",
+    chemicalClass: "Alcaloide", scientificName: "Passiflora incarnata",
+    references: [{ label: "DOI 10.1000/other", url: "https://doi.org/10.1000/other" }],
+  };
+  const before = (await repo.snapshot()).evidence.length;
+  const saved = await research.saveLotusBookmark(candidate);
+  assert.equal(saved.existing, false);
+  assert.equal((await research.saveLotusBookmark(candidate)).existing, true);
+  assert.equal((await repo.snapshot()).evidence.length, before);
+  assert.equal((await backup.exportCatalog()).data.bookmarks[0].id, saved.bookmark.id);
+  const portable = backup.parseImport(await backup.backup());
+  assert.equal(portable.payload.data.bookmarks[0].id, saved.bookmark.id);
+  await research.reviewLotus({
+    ...candidate, claim: "O estudo relata a presença do composto nessa espécie.",
+    type: "publication", source: "Estudo primário", url: "https://doi.org/10.1000/other", reviewed: true,
+  });
+  assert.equal((await repo.snapshot()).bookmarks.length, 0);
+  assert.equal((await repo.snapshot()).evidence.length, before + 1);
+  const another = await research.saveLotusBookmark({ ...candidate, scientificName: "Passiflora caerulea" });
+  await research.removeLotusBookmark(another.bookmark.id);
+  assert.equal((await repo.snapshot()).bookmarks.length, 0);
+});

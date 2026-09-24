@@ -23,6 +23,7 @@ import {
   ShieldCheck,
   BookOpen,
   NotebookPen,
+  HardDriveDownload,
   LogOut,
   X,
 } from "lucide-react";
@@ -32,6 +33,7 @@ import { NatureCard } from "@/features/nature/nature-card";
 import { ReflectionCard } from "@/features/reflections/reflection-card";
 import { Empty, Loading, api } from "./shared";
 import { NewObservation } from "@/features/observations/new-observation";
+import { deleteDraft, listDrafts, type OfflineDraft } from "@/lib/offline/drafts";
 import { ObservationDetail } from "@/features/observations/observation-detail";
 import { SpeciesDetail } from "@/features/species/species-detail";
 import { BackupPanel } from "@/features/backup/backup-panel";
@@ -59,6 +61,9 @@ export function CampoApp() {
     [error, setError] = useState(""),
     [notice, setNotice] = useState(""),
     [newOpen, setNewOpen] = useState(false),
+    [offlineDrafts, setOfflineDrafts] = useState<OfflineDraft[]>([]),
+    [resumeDraft, setResumeDraft] = useState<OfflineDraft | null>(null),
+    [draftError, setDraftError] = useState(""),
     [observationId, setObservationId] = useState<string | null>(null),
     [speciesId, setSpeciesId] = useState<string | null>(null),
     [backups, setBackups] = useState(false),
@@ -81,11 +86,16 @@ export function CampoApp() {
       setError((e as Error).message);
     }
   }, []);
+  const refreshDrafts = useCallback(async () => {
+    try { setOfflineDrafts(await listDrafts()); setDraftError(""); }
+    catch (cause) { setDraftError((cause as Error).message); }
+  }, []);
   useEffect(() => {
     void refresh();
+    void refreshDrafts();
     if ("serviceWorker" in navigator)
       navigator.serviceWorker.register("/sw.js").catch(() => {});
-  }, [refresh]);
+  }, [refresh, refreshDrafts]);
   useEffect(() => {
     const listener = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === "k") {
@@ -365,6 +375,17 @@ export function CampoApp() {
                       </div>
                     </div>
                     <Botanical />
+                  </section>
+                  <section className="offline-drafts panel" aria-label="Rascunhos no aparelho">
+                    <div className="offline-drafts-heading"><HardDriveDownload size={20} /><div><h2>Rascunhos no aparelho {offlineDrafts.length > 0 && <span>{offlineDrafts.length}</span>}</h2><p>Registros feitos sem conexão aguardam identificação e envio. As fotos continuam neste navegador até você decidir quais guardar.</p></div></div>
+                    {draftError && <p role="alert" className="error">{draftError}</p>}
+                    {offlineDrafts.length ? <div className="offline-draft-list">{offlineDrafts.map(item => <article key={item.id}>
+                      <div><strong>{item.data.region || (item.data.group === "plant" ? "Planta sem local informado" : "Fungo sem local informado")}</strong><small>{new Date(item.data.observedAt).toLocaleString("pt-BR")} · {item.photos.length} {item.photos.length === 1 ? "foto" : "fotos"}</small></div>
+                      <div className="offline-draft-actions"><Button type="button" size="sm" onClick={() => { setResumeDraft(item); setNewOpen(true); }}>Continuar rascunho</Button><Button type="button" size="sm" variant="outline" onClick={async () => {
+                        if (!window.confirm("Excluir este rascunho e suas fotos deste aparelho?")) return;
+                        try { await deleteDraft(item.id); await refreshDrafts(); } catch (cause) { setDraftError((cause as Error).message); }
+                      }}>Excluir rascunho</Button></div>
+                    </article>)}</div> : <p className="offline-drafts-empty">Nenhum rascunho pendente. Se perder a conexão no campo, abra o Campo para registrar fotos e notas sem enviar nada ao servidor.</p>}
                   </section>
                   <ReflectionCard />
                   <NatureCard />
@@ -806,10 +827,15 @@ export function CampoApp() {
       </div>
       {newOpen && (
         <NewObservation
-          onClose={() => setNewOpen(false)}
+          key={resumeDraft?.id || "new"}
+          draft={resumeDraft}
+          onClose={() => { setNewOpen(false); setResumeDraft(null); }}
+          onDraftSaved={async () => { await refreshDrafts(); setNewOpen(false); setResumeDraft(null); setNotice("Rascunho guardado neste aparelho. Retome quando quiser."); }}
           onSaved={async (id, message) => {
             setNewOpen(false);
+            setResumeDraft(null);
             await refresh();
+            await refreshDrafts();
             setObservationId(id);
             if (message) setNotice(message);
           }}

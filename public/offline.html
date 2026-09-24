@@ -1,1 +1,96 @@
-<!doctype html><html lang="pt-BR"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#141a17"><title>Campo · Sem conexão</title><style>body{background:#141a17;color:#e8ebdf;font:17px system-ui;max-width:450px;margin:20vh auto;padding:24px}h1{font:42px Georgia}a{color:#b9cf84}</style><img src="/icon.svg" width="64" alt="Campo"><h1>O campo espera.</h1><p>Conecte-se à mesma rede do computador onde seu catálogo está rodando para consultar ou salvar observações.</p><p>Esta versão não salva novos registros sem conexão.</p><a href="/">Tentar novamente →</a></html>
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#141a17">
+  <title>Campo · Registro offline</title>
+  <style>
+    :root{color-scheme:dark}*{box-sizing:border-box}body{margin:0;background:#141a17;color:#e8ebdf;font:15px system-ui,sans-serif;line-height:1.5}main{max-width:680px;margin:auto;padding:28px 20px 70px}header{display:flex;align-items:center;gap:14px;margin-bottom:28px}header img{width:45px;height:45px}h1,h2{font-family:Georgia,serif;font-weight:normal}h1{font-size:34px;margin:0}h2{font-size:22px;margin:0 0 8px}.eyebrow{color:#b9cf84;font-size:11px;letter-spacing:.16em;text-transform:uppercase}.card{background:#1d261e;border:1px solid #3b4b38;border-radius:12px;padding:20px;margin:20px 0}p,small{color:#b5c1ad}label{display:grid;gap:6px;margin:14px 0;font-size:13px}input,textarea,select{width:100%;font:inherit;color:#e8ebdf;background:#141a17;border:1px solid #52654b;border-radius:7px;padding:11px}textarea{min-height:95px;resize:vertical}.grid{display:grid;grid-template-columns:1fr 1fr;gap:0 12px}.actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:18px}button,.button{display:inline-flex;align-items:center;justify-content:center;border:1px solid #b9cf84;border-radius:7px;background:#b9cf84;color:#172117;padding:10px 16px;font:600 13px system-ui;cursor:pointer;text-decoration:none}button:disabled{opacity:.6;cursor:wait}.button{background:transparent;color:#b9cf84}#status{min-height:24px}#status.error{color:#ffb8a8}#status.success{color:#b9cf84}#photo-list{padding-left:19px;font-size:12px;color:#b5c1ad}footer{color:#8fa086;font-size:12px}@media(max-width:530px){.grid{grid-template-columns:1fr}h1{font-size:28px}}
+  </style>
+</head>
+<body>
+<main>
+  <header><img src="/icon.svg" alt=""><div><span class="eyebrow">CAMPO · CATÁLOGO PESSOAL</span><h1>Registre agora. Identifique depois.</h1></div></header>
+  <p>Sem conexão com o catálogo. Guarde uma observação neste aparelho e retome a identificação quando voltar à rede. Nada será enviado ao servidor nesta etapa.</p>
+  <section class="card" aria-label="Novo rascunho offline">
+    <h2>Novo rascunho de campo</h2>
+    <form id="draft-form">
+      <div class="grid"><label>Grupo<select name="group"><option value="plant">Planta</option><option value="fungus">Fungo</option></select></label><label>Data e hora<input name="observedAt" type="datetime-local"></label></div>
+      <label>Fotos (até 5, 20 MB cada)<input name="photos" type="file" accept="image/jpeg,image/png,image/webp" multiple required></label>
+      <ol id="photo-list"></ol>
+      <label>Local / região<input name="region" placeholder="Ex.: Campos de Cima da Serra, RS"></label>
+      <div class="grid"><label>Latitude<input name="latitude" type="number" min="-90" max="90" step="any"></label><label>Longitude<input name="longitude" type="number" min="-180" max="180" step="any"></label></div>
+      <button type="button" class="button" id="locate">Usar minha localização</button>
+      <div class="grid"><label>Habitat<input name="habitat" placeholder="Campo aberto, mata…"></label><label>Substrato<input name="substrate" placeholder="Solo, madeira…"></label></div>
+      <label>Notas de campo<textarea name="notes" placeholder="O que chamou sua atenção?"></textarea></label>
+      <div class="actions"><button type="submit">Guardar rascunho no aparelho</button><a class="button" href="/">Tentar abrir o catálogo</a></div>
+      <p id="status" role="status" aria-live="polite"></p>
+    </form>
+  </section>
+  <footer>Rascunhos ficam no armazenamento deste navegador. Eles não fazem parte do backup do catálogo até serem enviados. Evite limpar os dados deste site antes de concluir o envio.</footer>
+</main>
+<script>
+(() => {
+  const form = document.getElementById('draft-form');
+  const status = document.getElementById('status');
+  const photos = form.elements.photos;
+  document.getElementById('locate').addEventListener('click', () => {
+    status.textContent = 'Buscando localização…'; status.className = '';
+    if (!navigator.geolocation) { status.textContent = 'Localização indisponível neste navegador. Informe as coordenadas manualmente.'; return; }
+    navigator.geolocation.getCurrentPosition(position => {
+      form.elements.latitude.value = String(position.coords.latitude);
+      form.elements.longitude.value = String(position.coords.longitude);
+      status.textContent = 'Localização adicionada ao rascunho.';
+    }, () => { status.textContent = 'Não foi possível obter a localização. Informe as coordenadas manualmente.'; }, { timeout: 12000 });
+  });
+  photos.addEventListener('change', () => {
+    document.getElementById('photo-list').replaceChildren(...Array.from(photos.files || []).slice(0, 5).map(file => {
+      const li = document.createElement('li'); li.textContent = file.name; return li;
+    }));
+  });
+  function openDatabase() {
+    return new Promise((resolve, reject) => {
+      if (!window.indexedDB) { reject(new Error('Armazenamento local indisponível neste navegador.')); return; }
+      const request = indexedDB.open('campo-offline-v1', 1);
+      request.onupgradeneeded = () => { if (!request.result.objectStoreNames.contains('drafts')) request.result.createObjectStore('drafts', { keyPath: 'id' }); };
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error || new Error('Não foi possível abrir os rascunhos.'));
+      request.onblocked = () => reject(new Error('Feche outras abas do Campo e tente novamente.'));
+    });
+  }
+  form.addEventListener('submit', async event => {
+    event.preventDefault(); status.textContent = ''; status.className = '';
+    const button = form.querySelector('button[type=submit]'); button.disabled = true;
+    try {
+      const files = Array.from(photos.files || []);
+      if (!files.length || files.length > 5 || files.some(file => !file.size || file.size > 20 * 1024 * 1024 || !['image/jpeg','image/png','image/webp'].includes(file.type)))
+        throw new Error('Escolha de 1 a 5 fotos JPEG, PNG ou WebP, com até 20 MB cada.');
+      const lat = form.elements.latitude.value, lon = form.elements.longitude.value;
+      if (Boolean(lat) !== Boolean(lon)) throw new Error('Informe latitude e longitude juntas.');
+      const observedAt = form.elements.observedAt.value ? new Date(form.elements.observedAt.value).toISOString() : new Date().toISOString();
+      const now = new Date().toISOString();
+      const draft = {
+        id: crypto.randomUUID(), createdAt: now, updatedAt: now,
+        data: { group: form.elements.group.value, observedAt, region: form.elements.region.value,
+          habitat: form.elements.habitat.value, substrate: form.elements.substrate.value,
+          vegetation: '', light: '', altitude: null, latitude: lat ? Number(lat) : null,
+          longitude: lon ? Number(lon) : null, notes: form.elements.notes.value, morphology: {} },
+        photos: files.map(file => ({ blob: file, name: file.name, type: file.type, lastModified: file.lastModified, organ: 'auto' })),
+      };
+      const db = await openDatabase();
+      await new Promise((resolve, reject) => {
+        const tx = db.transaction('drafts', 'readwrite'); tx.objectStore('drafts').put(draft);
+        tx.oncomplete = resolve;
+        tx.onerror = () => reject(tx.error || new Error('Não foi possível guardar o rascunho.'));
+        tx.onabort = () => reject(tx.error || new Error('O armazenamento local foi interrompido.'));
+      });
+      db.close(); form.reset(); document.getElementById('photo-list').replaceChildren();
+      status.className = 'success'; status.textContent = 'Rascunho guardado neste aparelho. Quando houver conexão, abra o Campo e escolha “Continuar rascunho”.';
+    } catch (error) { status.className = 'error'; status.textContent = error && error.message ? error.message : 'Não foi possível guardar o rascunho.'; }
+    finally { button.disabled = false; }
+  });
+})();
+</script>
+</body>
+</html>

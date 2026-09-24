@@ -59,6 +59,7 @@ export async function backup(): Promise<Uint8Array> {
           observations: catalog.data.observations.length,
           images: catalog.data.images.length,
           notes: catalog.data.notes.length,
+          bookmarks: catalog.data.bookmarks.length,
           checksums,
         },
         null,
@@ -77,6 +78,7 @@ const manifestSchema = z.object({
   observations: z.number().int().nonnegative(),
   images: z.number().int().nonnegative(),
   notes: z.number().int().nonnegative().optional(),
+  bookmarks: z.number().int().nonnegative().optional(),
   checksums: z.record(z.string(), z.string().regex(/^[a-f0-9]{64}$/)),
 });
 export function validateRelations(data: ExportData) {
@@ -176,7 +178,8 @@ export function parseImport(bytes: Uint8Array) {
       manifest.species !== data.species.length ||
       manifest.observations !== data.observations.length ||
       manifest.images !== data.images.length ||
-      (manifest.version === 2 && manifest.notes !== data.notes.length)
+      (manifest.version === 2 && manifest.notes !== data.notes.length) ||
+      (manifest.bookmarks !== undefined && manifest.bookmarks !== data.bookmarks.length)
     )
       throw new Error("Contagens do manifesto divergem.");
   } else parsed = JSON.parse(strFromU8(bytes));
