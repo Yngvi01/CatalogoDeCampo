@@ -23,6 +23,7 @@ export default function FieldMap({
   );
   useEffect(() => {
     if (!ref.current) return;
+    setError("");
     let map: maplibregl.Map;
     try {
       map = new maplibregl.Map({
