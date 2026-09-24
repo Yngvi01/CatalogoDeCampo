@@ -38,7 +38,7 @@ import {
   updateSpecies,
 } from "@/features/observations/service";
 import { identify, compare } from "@/features/identification/service";
-import { investigate, incorporate } from "@/features/research/service";
+import { investigate, incorporate, reviewLotus, addCompoundEffect, removeCompoundEffect } from "@/features/research/service";
 import {
   backup,
   exportCatalog,
@@ -353,6 +353,8 @@ export async function POST(request: NextRequest, ctx: Context) {
     }
     const input = await limitedJson(request);
     if (area === "notes" && !id) return json(await createNote(input), 201);
+    if (area === "lotus" && id === "review" && !action) return json(await reviewLotus(input), 201);
+    if (area === "compounds" && id && action === "effects") return json(await addCompoundEffect(id, input), 201);
     if (area === "observations" && id) {
       if (action === "identify")
         return json(
@@ -449,7 +451,11 @@ export async function PATCH(request: NextRequest, ctx: Context) {
 export async function DELETE(request: NextRequest, ctx: Context) {
   try {
     authorize(request);
-    const [area, id, action] = (await ctx.params).path;
+    const [area, id, action, claimId] = (await ctx.params).path;
+    if (area === "compounds" && id && action === "effects" && claimId) {
+      z.object({ confirm: z.literal(true) }).parse(await limitedJson(request));
+      return json(await removeCompoundEffect(id, claimId));
+    }
     if (area !== "observations" || !id || action)
       return json({ error: "Rota não encontrada." }, 404);
     z.object({ confirm: z.literal(true) }).parse(await limitedJson(request));

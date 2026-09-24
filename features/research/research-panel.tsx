@@ -13,7 +13,10 @@ import { Empty, Modal, ErrorText, api, send } from "@/components/shared";
 import { EvidenceForm } from "./evidence-form";
 import { CompoundForm } from "./compound-form";
 import { LotusExplorer } from "./lotus-explorer";
-import type { Catalog, Discovery } from "@/lib/validation/schemas";
+import { EffectForm } from "./effect-form";
+import { effectLabels, contextLabels } from "./effects";
+import { evidenceLabels } from "@/components/shared";
+import type { Catalog, Discovery, Compound } from "@/lib/validation/schemas";
 import { normalize } from "@/lib/utils";
 const discoveryStatuses: Record<string, string> = {
   new: "Novo",
@@ -40,6 +43,7 @@ export function ResearchPanel({
     [status, setStatus] = useState("all"),
     [adding, setAdding] = useState(false),
     [review, setReview] = useState<Discovery | null>(null),
+    [effectFor, setEffectFor] = useState<Compound | null>(null),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false),
     [notice, setNotice] = useState("");
@@ -88,7 +92,7 @@ export function ResearchPanel({
           </Button>
         )}
       </div>
-      {tab === "explore" ? <LotusExplorer compounds={data.compounds} /> : tab === "discoveries" ? (
+      {tab === "explore" ? <LotusExplorer compounds={data.compounds} onReviewed={async () => { await refresh(); setNotice("Relação revisada incorporada ao catálogo."); }} /> : tab === "discoveries" ? (
         <>
           <div className="research-controls">
             <select
@@ -239,7 +243,7 @@ export function ResearchPanel({
                   ["Sinônimos", c.synonyms.join(", ")],
                   ["Mecanismos", c.mechanisms],
                   ["Alvos", c.targets],
-                  ["Efeitos descritos", c.effects],
+                  ["Anotação anterior de efeitos (sem fonte estruturada)", c.effects],
                   ["Toxicologia", c.toxicology],
                 ]
                   .filter(([, v]) => v)
@@ -250,6 +254,20 @@ export function ResearchPanel({
                     </div>
                   ))}
               </dl>
+              <div className="compound-effects"><strong>Efeitos com fonte</strong>
+                {(c.effectClaims || []).length ? c.effectClaims.map(claim => <div key={claim.id}>
+                  <span className="badge">{effectLabels[claim.kind]}</span> <span>{contextLabels[claim.context]} · {evidenceLabels[claim.type]}</span>
+                  <p>{claim.claim}</p>
+                  <a href={claim.url} target="_blank" rel="noreferrer">{claim.source} <ArrowUpRight size={12} /></a>
+                  <button type="button" className="text-button" onClick={async () => {
+                    if (!window.confirm("Excluir este registro de efeito?")) return;
+                    setError("");
+                    try { await api(`compounds/${c.id}/effects/${claim.id}`, { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ confirm: true }) }); await refresh(); }
+                    catch (cause) { setError((cause as Error).message); }
+                  }}>Excluir efeito</button>
+                </div>) : <p>Nenhum efeito com fonte registrado.</p>}
+                <Button type="button" size="sm" variant="outline" onClick={() => setEffectFor(c)}>Registrar efeito com fonte</Button>
+              </div>
               {(() => {
                 const linked = data.evidence.filter(e => e.compoundId === c.id);
                 return <div className="compound-evidence"><strong>{linked.length} {linked.length === 1 ? "evidência vinculada" : "evidências vinculadas"}</strong>
@@ -302,6 +320,9 @@ export function ResearchPanel({
           />
         </Modal>
       )}
+      {effectFor && <Modal title="Registrar efeito com fonte" subtitle={effectFor.name} onClose={() => setEffectFor(null)} wide>
+        <EffectForm compoundId={effectFor.id} onSaved={async () => { await refresh(); setEffectFor(null); }} />
+      </Modal>}
     </>
   );
 }

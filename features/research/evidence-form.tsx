@@ -100,7 +100,7 @@ export function EvidenceForm({
           </datalist>
         </Field>
         <Field label="Tipo de evidência">
-          <select name="type" defaultValue={discovery ? "review" : "personal"}>
+          <select name="type" defaultValue={discovery ? "publication" : "personal"}>
             {Object.entries(evidenceLabels).map(([v, l]) => (
               <option key={v} value={v}>
                 {l}

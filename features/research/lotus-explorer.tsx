@@ -2,20 +2,16 @@
 import { useRef, useState } from "react";
 import { ArrowUpRight, FlaskConical, Leaf, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { api, ErrorText } from "@/components/shared";
+import { api, ErrorText, Modal } from "@/components/shared";
 import { libraryEntries } from "@/features/library/entries";
 import type { Catalog, Compound } from "@/lib/validation/schemas";
 import type { LotusHit, LotusSearch, LotusTaxon } from "@/lib/providers/lotus";
 import { normalize } from "@/lib/utils";
+import { effectLabels as effectNames, contextLabels } from "./effects";
+import { LotusReviewForm } from "./lotus-review-form";
 
 type Mode = "plant" | "compound";
-const effectLabels = ["Todos", "Psicodélico", "Sedativo", "Estimulante", "Ansiolítico"] as const;
-const effectStems: Record<string, string[]> = {
-  Psicodélico: ["psicodel", "psychedel"],
-  Sedativo: ["sedativ", "sedat"],
-  Estimulante: ["estimul", "stimulan"],
-  Ansiolítico: ["ansiolit", "anxiolyt"],
-};
+const effectLabels = ["Todos", ...Object.values(effectNames)] as const;
 const rsNames = new Set(libraryEntries.filter(entry => entry.scope === "species")
   .flatMap(entry => [entry.scientificName, ...(entry.aliases || [])]).map(normalize));
 const isRsSpecies = (taxon: LotusTaxon) => taxon.rank === "species" && rsNames.has(normalize(taxon.name));
@@ -23,12 +19,10 @@ const knownCompound = (hit: LotusHit, compounds: Compound[]) => compounds.find(c
   hit.inchiKey && compound.inchiKey && compound.inchiKey === hit.inchiKey)
   || compounds.find(compound => (!hit.inchiKey || !compound.inchiKey) && normalize(compound.name) === normalize(hit.name));
 const effectTags = (compound?: Compound) => {
-  if (!compound?.effects) return [];
-  const text = normalize(compound.effects);
-  return Object.entries(effectStems).filter(([, stems]) => stems.some(stem => text.includes(stem))).map(([label]) => label);
+  return [...new Set((compound?.effectClaims || []).map(claim => effectNames[claim.kind]))];
 };
 
-function Occurrence({ taxon }: { taxon: LotusTaxon }) {
+function Occurrence({ taxon, onReview }: { taxon: LotusTaxon; onReview: () => void }) {
   return <div className="lotus-taxon">
     <div><em>{taxon.name}</em><span className="badge">{taxon.rank === "species" ? "ESPÉCIE" : "GÊNERO"}</span>{isRsSpecies(taxon) && <span className="badge">FICHA RS</span>}</div>
     <div className="lotus-references">{taxon.references.length ? taxon.references.slice(0, 3).map((reference, index) => reference.url
@@ -36,10 +30,11 @@ function Occurrence({ taxon }: { taxon: LotusTaxon }) {
       : <span key={`${reference.label}-${index}`}>{reference.label}</span>) : <span>Referência: consulte a ficha LOTUS</span>}
       {taxon.references.length > 3 && <small>+ {taxon.references.length - 3} referências na ficha LOTUS</small>}
     </div>
+    {taxon.rank === "species" && <Button type="button" size="sm" variant="outline" onClick={onReview}>Revisar esta relação</Button>}
   </div>;
 }
 
-export function LotusExplorer({ compounds }: { compounds: Catalog["compounds"] }) {
+export function LotusExplorer({ compounds, onReviewed }: { compounds: Catalog["compounds"]; onReviewed: () => Promise<void> }) {
   const [mode, setMode] = useState<Mode>("plant");
   const [query, setQuery] = useState("");
   const [result, setResult] = useState<LotusSearch | null>(null);
@@ -48,6 +43,7 @@ export function LotusExplorer({ compounds }: { compounds: Catalog["compounds"] }
   const [onlyRs, setOnlyRs] = useState(false);
   const [effect, setEffect] = useState<(typeof effectLabels)[number]>("Todos");
   const [limit, setLimit] = useState(15);
+  const [review, setReview] = useState<{ hit: LotusHit; taxon: LotusTaxon } | null>(null);
   const requestId = useRef(0);
   const search = async (term = query, selectedMode = mode) => {
     const id = ++requestId.current;
@@ -92,7 +88,7 @@ export function LotusExplorer({ compounds }: { compounds: Catalog["compounds"] }
     <div className="lotus-suggestions"><span>Experimente:</span>{(mode === "plant" ? ["Erythrina falcata", "Ilex paraguariensis", "Baccharis trimera"] : ["caffeine", "linalool", "quercetin"]).map(item => <button type="button" key={item} onClick={() => void search(item)}>{item}</button>)}</div>
     {mode === "compound" && <label className="lotus-rs-filter"><input type="checkbox" checked={onlyRs} onChange={event => setOnlyRs(event.target.checked)} /> Mostrar apenas espécies com ficha na biblioteca do RS</label>}
     <div className="lotus-effect-filter"><span>Efeito de interesse:</span>{effectLabels.map(label => <button type="button" key={label} className={effect === label ? "active" : ""} aria-pressed={effect === label} onClick={() => setEffect(label)}>{label}</button>)}</div>
-    <p className="lotus-caveat">Os filtros de efeito usam apenas anotações feitas nos compostos do seu catálogo; o LOTUS não atribui efeitos farmacológicos a estas relações. Parte analisada, método e concentração não vêm nesta consulta: confira a publicação. Resultado em nível de gênero não confirma cada espécie. Ausência de registro não prova ausência do composto.</p>
+    <p className="lotus-caveat">Os filtros de efeito usam apenas registros estruturados com fonte feitos nos compostos do seu catálogo; o LOTUS não atribui efeitos farmacológicos a estas relações. Parte analisada, método e concentração não vêm nesta consulta: confira a publicação. Resultado em nível de gênero não confirma cada espécie. Ausência de registro não prova ausência do composto.</p>
     <ErrorText message={error} />
     {error && <a className="text-button" href={`https://lotus.naturalproducts.net/search?query=${encodeURIComponent(query)}`} target="_blank" rel="noreferrer">Consultar diretamente no LOTUS <ArrowUpRight size={14} /></a>}
     {result && <>
@@ -102,11 +98,15 @@ export function LotusExplorer({ compounds }: { compounds: Catalog["compounds"] }
         const taxa = mode === "compound" && onlyRs ? hit.taxa.filter(isRsSpecies) : hit.taxa;
         return <article className="panel lotus-hit" key={hit.lotusId}>
           <div className="lotus-hit-heading"><div><span className="eyebrow">LOTUS · {hit.lotusId}</span><h3>{hit.name}</h3><p>{hit.formula || "Fórmula não informada"}{hit.chemicalClass && <> · {hit.chemicalClass}</>}</p></div><a href={hit.url} target="_blank" rel="noreferrer" aria-label={`Abrir ${hit.name} no LOTUS`}><ArrowUpRight size={18} /></a></div>
-          {local?.effects && <p className="lotus-local-effect">Anotação local de efeitos: {local.effects}</p>}
-          <div className="lotus-occurrences"><strong>{taxa.length} {taxa.length === 1 ? "táxon relacionado" : "táxons relacionados"}</strong>{taxa.slice(0, mode === "compound" ? 12 : 5).map(taxon => <Occurrence key={taxon.name} taxon={taxon} />)}{taxa.length > (mode === "compound" ? 12 : 5) && <details><summary>Ver mais {taxa.length - (mode === "compound" ? 12 : 5)} táxons</summary>{taxa.slice(mode === "compound" ? 12 : 5).map(taxon => <Occurrence key={taxon.name} taxon={taxon} />)}</details>}</div>
+          {local?.effectClaims?.map(claim => <p className="lotus-local-effect" key={claim.id}>{effectNames[claim.kind]} · {contextLabels[claim.context]} · <a href={claim.url} target="_blank" rel="noreferrer">{claim.source}</a></p>)}
+          {local?.effects && <p className="lotus-local-effect">Anotação anterior, sem fonte estruturada: {local.effects}</p>}
+          <div className="lotus-occurrences"><strong>{taxa.length} {taxa.length === 1 ? "táxon relacionado" : "táxons relacionados"}</strong>{taxa.slice(0, mode === "compound" ? 12 : 5).map(taxon => <Occurrence key={taxon.name} taxon={taxon} onReview={() => setReview({ hit, taxon })} />)}{taxa.length > (mode === "compound" ? 12 : 5) && <details><summary>Ver mais {taxa.length - (mode === "compound" ? 12 : 5)} táxons</summary>{taxa.slice(mode === "compound" ? 12 : 5).map(taxon => <Occurrence key={taxon.name} taxon={taxon} onReview={() => setReview({ hit, taxon })} />)}</details>}</div>
         </article>;
       })}</div> : <div className="panel lotus-empty">Nenhuma relação corresponde à busca e aos filtros. Amplie a busca ou consulte o artigo original.</div>}
       {hits.length > limit && <Button type="button" variant="outline" onClick={() => setLimit(value => value + 15)}>Mostrar mais compostos</Button>}
     </>}
+    {review && <Modal title="Revisar relação do LOTUS" subtitle="A incorporação depende da publicação" onClose={() => setReview(null)} wide>
+      <LotusReviewForm key={`${review.hit.lotusId}-${review.taxon.name}`} hit={review.hit} taxon={review.taxon} onSaved={async () => { await onReviewed(); setReview(null); }} />
+    </Modal>}
   </section>;
 }

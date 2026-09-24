@@ -1,13 +1,101 @@
 import { randomUUID, createHash } from "node:crypto";
-import { get, put } from "@/lib/db/repository";
+import { get, list, put } from "@/lib/db/repository";
 import { transaction } from "@/lib/db";
 import { europePMC, researchTopics } from "@/lib/providers/europe-pmc";
 import {
   evidenceSchema,
   discoverySchema,
+  compoundSchema,
+  speciesSchema,
+  effectClaimSchema,
+  evidenceTypes,
   type Species,
   type Discovery,
+  type Compound,
 } from "@/lib/validation/schemas";
+import { normalize } from "@/lib/utils";
+import { z } from "zod";
+
+const lotusReviewInput = z.object({
+  lotusId: z.string().regex(/^LTS\d{5,12}$/),
+  scientificName: z.string().trim().min(3).max(250).refine(name => /^\S+\s+\S+/.test(name) && !/\bspp?\.?$/i.test(name), "Revise uma espécie, não apenas um gênero."),
+  compoundName: z.string().trim().min(1).max(250),
+  inchiKey: z.string().max(100),
+  formula: z.string().max(500),
+  claim: z.string().trim().min(10).max(30000),
+  type: z.enum(evidenceTypes),
+  source: z.string().trim().min(2).max(500),
+  url: z.url().refine(url => /^https:\/\//.test(url)),
+  part: z.string().max(500).default(""),
+  concentration: z.string().max(500).default(""),
+  unit: z.string().max(500).default(""),
+  range: z.string().max(500).default(""),
+  method: z.string().max(500).default(""),
+  sampleOrigin: z.string().max(500).default(""),
+  notes: z.string().max(30000).default(""),
+  reviewed: z.literal(true),
+});
+
+export async function reviewLotus(input: unknown) {
+  const value = lotusReviewInput.parse(input);
+  return transaction(async () => {
+    const species = (await list<Species>("species")).find(item => item.group === "plant" && (normalize(item.scientificName) === normalize(value.scientificName)
+      || normalize(item.acceptedName) === normalize(value.scientificName)));
+    const existingCompounds = await list<Compound>("compounds");
+    const compound = existingCompounds.find(item => value.inchiKey && item.inchiKey === value.inchiKey)
+      || existingCompounds.find(item => (!value.inchiKey || !item.inchiKey) && normalize(item.name) === normalize(value.compoundName));
+    const now = new Date().toISOString();
+    const plant = species || speciesSchema.parse({
+      id: randomUUID(), scientificName: value.scientificName, acceptedName: "", commonNames: [], synonyms: [],
+      group: "plant", genus: value.scientificName.split(" ")[0], family: "", taxonomy: {},
+      description: "", diagnostics: "", distribution: "", habitat: "", toxicity: "", traditionalUses: "", notes: "", createdAt: now,
+    });
+    const chemical = compound || compoundSchema.parse({
+      id: randomUUID(), name: value.compoundName, inchiKey: value.inchiKey, formula: value.formula,
+      synonyms: [], chemicalClass: "", description: "", mechanisms: "", targets: "", effects: "", toxicology: "", createdAt: now,
+    });
+    const duplicate = (await list<z.infer<typeof evidenceSchema>>("evidence")).find(item =>
+      item.speciesId === plant.id && item.compoundId === chemical.id && item.url === value.url && normalize(item.claim) === normalize(value.claim));
+    if (duplicate) return { species: plant, compound: chemical, evidence: duplicate, existing: true };
+    const evidence = evidenceSchema.parse({
+      id: randomUUID(), speciesId: plant.id, compoundId: chemical.id, property: "composição química",
+      claim: value.claim, type: value.type, origin: "publication", source: value.source, url: value.url,
+      part: value.part, concentration: value.concentration, unit: value.unit, range: value.range,
+      method: value.method, sampleOrigin: value.sampleOrigin,
+      notes: [value.notes, `Relação localizada no LOTUS: https://lotus.naturalproducts.net/compound/lotus_id/${value.lotusId}`].filter(Boolean).join("\n"),
+      createdAt: now,
+    });
+    if (!species) await put("species", plant);
+    if (!compound) await put("compounds", chemical);
+    await put("evidence", evidence);
+    return { species: plant, compound: chemical, evidence, existing: false };
+  });
+}
+
+export async function addCompoundEffect(compoundId: string, input: unknown) {
+  const fields = effectClaimSchema.omit({ id: true, createdAt: true }).parse(input);
+  return transaction(async () => {
+    const current = await get<Compound>("compounds", compoundId);
+    if (!current) throw new Error("Composto não encontrado.");
+    const claims = current.effectClaims || [];
+    if (claims.some(item => item.kind === fields.kind && item.url === fields.url && normalize(item.claim) === normalize(fields.claim)))
+      throw new Error("Este efeito e fonte já foram registrados.");
+    const claim = effectClaimSchema.parse({ ...fields, id: randomUUID(), createdAt: new Date().toISOString() });
+    await put("compounds", compoundSchema.parse({ ...current, effectClaims: [...claims, claim] }));
+    return claim;
+  });
+}
+
+export async function removeCompoundEffect(compoundId: string, claimId: string) {
+  return transaction(async () => {
+    const current = await get<Compound>("compounds", compoundId);
+    if (!current) throw new Error("Composto não encontrado.");
+    const claims = current.effectClaims || [];
+    if (!claims.some(item => item.id === claimId)) throw new Error("Registro de efeito não encontrado.");
+    await put("compounds", compoundSchema.parse({ ...current, effectClaims: claims.filter(item => item.id !== claimId) }));
+    return { ok: true };
+  });
+}
 export async function investigate(id: string, refresh = false, compoundName = "") {
   const s = await get<Species>("species", id);
   if (!s) throw new Error("Espécie não encontrada.");

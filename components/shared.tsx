@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef } from "react";
+import { useEffect, useId, useRef } from "react";
 import { X, LoaderCircle } from "lucide-react";
 import { Button } from "./ui/button";
 import { readJsonResponse } from "@/lib/http/response";
@@ -33,6 +33,7 @@ export function Modal({
   wide?: boolean;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
+  const headingId = useId();
   useEffect(() => {
     const dialog = ref.current!;
     dialog.showModal();
@@ -46,6 +47,7 @@ export function Modal({
   return (
     <dialog
       ref={ref}
+      aria-labelledby={headingId}
       className={`modal ${wide ? "modal-wide" : ""}`}
       onCancel={(e) => {
         e.preventDefault();
@@ -58,7 +60,7 @@ export function Modal({
       <div className="modal-heading">
         <div>
           <span className="eyebrow">CAMPO · CATÁLOGO</span>
-          <h2>{title}</h2>
+          <h2 id={headingId}>{title}</h2>
           {subtitle && <p>{subtitle}</p>}
         </div>
         <Button
@@ -130,6 +132,7 @@ export const evidenceLabels: Record<string, string> = {
   anecdotal: "Relato anedótico",
   traditional: "Uso tradicional",
   observation: "Observação botânica/micológica",
+  publication: "Publicação (tipo não classificado)",
   in_vitro: "Estudo in vitro",
   animal: "Estudo animal",
   human: "Estudo humano",

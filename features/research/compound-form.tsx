@@ -78,7 +78,7 @@ export function CompoundForm({ onSaved }: { onSaved: () => Promise<void> }) {
       </div>
       {([
         ["description", "Descrição"], ["mechanisms", "Mecanismos"],
-        ["effects", "Efeitos descritos"], ["toxicology", "Toxicologia"],
+        ["toxicology", "Toxicologia"],
       ] as const).map(([field, label]) => <Field label={label} key={field}><textarea value={values[field]} onChange={event => setField(field, event.target.value)} /></Field>)}
       <ErrorText message={error} />
       <Button disabled={saving}>{saving ? "Salvando…" : "Salvar composto"}</Button>

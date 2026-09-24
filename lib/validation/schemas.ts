@@ -118,6 +118,30 @@ export const historySchema = z.object({
   note: long,
   createdAt: time,
 });
+export const evidenceTypes = [
+  "personal",
+  "anecdotal",
+  "traditional",
+  "observation",
+  "publication",
+  "in_vitro",
+  "animal",
+  "human",
+  "review",
+  "meta_analysis",
+] as const;
+export const effectKinds = ["psychedelic", "sedative", "stimulant", "anxiolytic", "other"] as const;
+export const effectContexts = ["isolated_compound", "extract", "whole_organism", "traditional_use", "unspecified"] as const;
+export const effectClaimSchema = z.object({
+  id,
+  kind: z.enum(effectKinds),
+  context: z.enum(effectContexts),
+  claim: z.string().trim().min(5).max(30000),
+  type: z.enum(evidenceTypes),
+  source: z.string().trim().min(2).max(500),
+  url: httpUrl,
+  createdAt: time,
+});
 export const compoundSchema = z.object({
   id,
   name: z.string().min(1).max(250),
@@ -131,20 +155,10 @@ export const compoundSchema = z.object({
   mechanisms: long,
   targets: short,
   effects: long,
+  effectClaims: z.array(effectClaimSchema).default([]),
   toxicology: long,
   createdAt: time,
 });
-export const evidenceTypes = [
-  "personal",
-  "anecdotal",
-  "traditional",
-  "observation",
-  "in_vitro",
-  "animal",
-  "human",
-  "review",
-  "meta_analysis",
-] as const;
 export const evidenceSchema = z.object({
   id,
   speciesId: id,
@@ -257,6 +271,7 @@ export type Photo = z.infer<typeof imageSchema>;
 export type Candidate = z.infer<typeof candidateSchema>;
 export type Identification = z.infer<typeof identificationSchema>;
 export type Compound = z.infer<typeof compoundSchema>;
+export type EffectClaim = z.infer<typeof effectClaimSchema>;
 export type Evidence = z.infer<typeof evidenceSchema>;
 export type Discovery = z.infer<typeof discoverySchema>;
 export type ExportData = z.infer<typeof exportDataSchema>;
