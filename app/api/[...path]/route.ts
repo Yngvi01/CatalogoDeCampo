@@ -32,6 +32,11 @@ import {
   importCatalog,
 } from "@/features/backup/service";
 import { getReflections } from "@/lib/providers/zenquotes";
+import {
+  createNote,
+  updateNote,
+  NoteConflictError,
+} from "@/features/notebook/service";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 type Context = { params: Promise<{ path: string[] }> };
@@ -44,6 +49,8 @@ function authorize(request: NextRequest) {
     throw new Error("Origem não autorizada.");
 }
 function failure(error: unknown) {
+  if (error instanceof NoteConflictError)
+    return json({ error: error.message }, 409);
   if (error instanceof Error && error.message.startsWith("Sessão"))
     return json({ error: error.message }, 401);
   if (error instanceof Error && error.message === "Origem não autorizada.")
@@ -175,6 +182,7 @@ export async function POST(request: NextRequest, ctx: Context) {
       return json(importCatalog(bytes, strategy, String(form.get("hash"))));
     }
     const input = await limitedJson(request);
+    if (area === "notes" && !id) return json(createNote(input), 201);
     if (area === "observations" && id) {
       if (action === "identify")
         return json(
@@ -233,6 +241,7 @@ export async function PATCH(request: NextRequest, ctx: Context) {
     authorize(request);
     const [area, id] = (await ctx.params).path;
     const input = await limitedJson(request);
+    if (area === "notes" && id) return json(updateNote(id, input));
     if (area === "species") return json(updateSpecies(id, input));
     if (area === "observations") {
       const current = get<Observation>("observations", id);

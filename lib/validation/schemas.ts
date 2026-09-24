@@ -203,6 +203,22 @@ export const settingsSchema = z.object({
     theme: z.enum(["dark", "light"]).optional(),
   }),
 });
+export const noteInputSchema = z.object({
+  title: z.string().trim().min(1, "Dê um título à página.").max(200),
+  content: z.string().max(100000),
+  tags: z.array(z.string().trim().min(1).max(50)).max(12).default([]),
+});
+export const noteSchema = noteInputSchema.extend({
+  id,
+  archived: z.boolean(),
+  createdAt: time,
+  updatedAt: time,
+});
+export const noteUpdateSchema = noteInputSchema.partial().extend({
+  tags: noteInputSchema.shape.tags.removeDefault().optional(),
+  archived: z.boolean().optional(),
+  expectedUpdatedAt: time,
+});
 export const exportDataSchema = z.object({
   species: z.array(speciesSchema),
   observations: z.array(observationSchema),
@@ -214,13 +230,24 @@ export const exportDataSchema = z.object({
   discoveries: z.array(discoverySchema),
   research: z.array(researchSchema),
   settings: z.array(settingsSchema),
+  notes: z.array(noteSchema),
 });
-export const exportSchema = z.object({
-  format: z.literal("campo-catalogo"),
-  version: z.literal(1),
-  exportedAt: time,
-  data: exportDataSchema,
-});
+// v1 não tinha caderno. v2 exige notes, evitando perdas silenciosas em leitores antigos.
+export const exportSchema = z.discriminatedUnion("version", [
+  z.object({
+    format: z.literal("campo-catalogo"),
+    version: z.literal(1),
+    exportedAt: time,
+    data: exportDataSchema.extend({ notes: z.array(noteSchema).default([]) }),
+  }),
+  z.object({
+    format: z.literal("campo-catalogo"),
+    version: z.literal(2),
+    exportedAt: time,
+    data: exportDataSchema,
+  }),
+]);
+export type Note = z.infer<typeof noteSchema>;
 export type Species = z.infer<typeof speciesSchema>;
 export type Observation = z.infer<typeof observationSchema>;
 export type Photo = z.infer<typeof imageSchema>;
@@ -236,6 +263,7 @@ export type Catalog = {
   compounds: Compound[];
   evidence: Evidence[];
   discoveries: Discovery[];
+  notes: Note[];
   plantnetConfigured: boolean;
   passwordConfigured: boolean;
 };

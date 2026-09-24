@@ -29,6 +29,7 @@ const labels: Record<string, string> = {
   discoveries: "Descobertas",
   research: "Pesquisas",
   settings: "Preferências",
+  notes: "Páginas do caderno",
 };
 export function BackupPanel({
   onClose,

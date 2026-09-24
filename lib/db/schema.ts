@@ -7,6 +7,7 @@ import type {
   Compound,
   Evidence,
   Discovery,
+  Note,
 } from "../validation/schemas";
 export const species = sqliteTable("species", {
   id: text("id").primaryKey(),
@@ -76,4 +77,9 @@ export const cache = sqliteTable("cache", {
   data: text("data", { mode: "json" }).notNull(),
   createdAt: text("created_at").notNull(),
   expiresAt: integer("expires_at").notNull(),
+});
+
+export const notes = sqliteTable("notes", {
+  id: text("id").primaryKey(),
+  data: text("data", { mode: "json" }).$type<Note>().notNull(),
 });

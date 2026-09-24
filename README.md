@@ -55,7 +55,8 @@ Chaves, `.env` e senha não são exportados. Não use prefixo `NEXT_PUBLIC_` par
 - Compare fontes e registre uma identificação provável, identificada pelo usuário ou confirmada externamente. A última opção exige uma justificativa/fonte.
 - **Catálogo:** acompanhe a ficha da espécie e seus diferentes encontros. Registre dados pessoais e evidências, com origem e tipo claramente separados.
 - **Campo:** veja observações com coordenadas no mapa e abra o registro pela lista ou marcador.
-- **Pesquisa:** investigue uma espécie na Europe PMC, revise descobertas, cadastre compostos e incorpore evidências deliberadamente.
+- **Pesquisa → Caderno:** escreva páginas com título, texto e etiquetas, releia pelo índice, exporte em TXT ou arquive para consultar depois.
+- **Pesquisa → Descobertas:** investigue uma espécie na Europe PMC, revise descobertas, cadastre compostos e incorpore evidências deliberadamente.
 - **Dados e backup:** exporte o ZIP completo regularmente.
 
 A busca global ignora acentos e caixa e abrange nomes, família, gênero, região, habitat, substrato, morfologia, propriedades, compostos, classes e alvos. Há filtros de grupo, status, período, propriedade, evidência e distância da localização atual. O catálogo é carregado em memória no navegador, adequado ao uso pessoal; paginação e índices de busca são evoluções para volumes maiores.
@@ -92,7 +93,7 @@ Providers separados implementam `IdentificationProvider`, `TaxonomyProvider`, `O
 
 ## Backup e transferência
 
-JSON contém `format: "campo-catalogo"`, `version: 1`, `exportedAt` e `data`, com espécies, observações, imagens (metadados), identificações, histórico, compostos, evidências/propriedades/referências, descobertas, pesquisas e preferências permitidas. JSON **não inclui arquivos de imagem**. CSV é oferecido para espécies, observações e compostos, com neutralização de fórmulas de planilha.
+JSON contém `format: "campo-catalogo"`, `version: 2`, `exportedAt` e `data`, com espécies, observações, imagens (metadados), identificações, histórico, compostos, evidências/propriedades/referências, descobertas, pesquisas, páginas do caderno (incluindo arquivadas) e preferências permitidas. JSON **não inclui arquivos de imagem**. CSV é oferecido para espécies, observações e compostos, com neutralização de fórmulas de planilha.
 
 ZIP completo:
 
@@ -126,6 +127,7 @@ features/observations/  Registro, edição e histórico
 features/identification/Providers e comparação
 features/species/       Ficha, observações e evidências
 features/research/      Publicações, compostos e revisão
+features/notebook/      Caderno, leitura e edição de páginas
 features/map/           MapLibre + tiles OpenStreetMap
 features/backup/        Exportação e restauração
 lib/db/                 Drizzle, SQLite, migrations e repositório
@@ -164,3 +166,14 @@ Testes de serviço usam banco temporário e verificam registro, EXIF, histórico
 O bloco **Uma pausa para pensar** exibe frases em inglês do [ZenQuotes](https://docs.zenquotes.io/zenquotes-documentation/), com autor e crédito/link do serviço. Não exige chave nem dependência adicional. A seleção muda aleatoriamente a cada 60 segundos, sem repetição imediata; é possível pausar, retomar ou avançar manualmente. A rotação para quando a aba fica oculta e respeita a preferência por movimento reduzido na transição.
 
 O backend busca um lote de frases e o mantém no cache SQLite por 24 horas. Cada troca acontece no navegador, sem nova chamada externa. Em caso de falha, preserva o último lote disponível e aguarda 15 minutos antes de tentar novamente. Sem cache, exibe reflexões originais do Campo, identificadas como tal. O serviço recebe uma consulta genérica do servidor; não recebe fotos, coordenadas ou dados do catálogo. O plano gratuito retorna reflexões gerais, sem promessa de filtro por filosofia ou psicologia.
+
+
+## Caderno de anotações
+
+Em **Pesquisa → Caderno**, cada anotação é uma página com título, texto livre, etiquetas e datas de criação/edição. O índice permite alternar páginas em uma leitura semelhante a um livro. A busca do caderno e a busca global nessa área ignoram acentos e maiúsculas, pesquisando títulos, textos e etiquetas.
+
+Use **Salvar página** (ou Ctrl/⌘ S) para gravar no SQLite. A edição avisa antes de descartar mudanças ao fechar o editor ou sair da página. Não há salvamento automático nem gravação offline: se o envio falhar, mantenha o editor aberto ou copie o texto antes de sair. Alterações concorrentes em outra janela são bloqueadas para não sobrescrever a versão mais recente.
+
+**Arquivar** mantém a página guardada e pesquisável em **Arquivadas**; **Restaurar página** devolve ao caderno. Também é possível baixar cada página como TXT. Não há exclusão definitiva na interface.
+
+O backup passou para o **formato 2** para incluir as páginas, inclusive arquivadas. JSON e ZIP da versão 1 continuam sendo aceitos e são interpretados como sem páginas. Uma restauração completa de um backup antigo esvazia o caderno, como indicado na prévia, mas cria antes um backup automático contendo o estado atual. Use esta versão ou uma mais recente do aplicativo para importar arquivos do formato 2.

@@ -23,7 +23,7 @@ const sha = (b: Uint8Array) => createHash("sha256").update(b).digest("hex");
 export function exportCatalog() {
   return {
     format: "campo-catalogo" as const,
-    version: 1 as const,
+    version: 2 as const,
     exportedAt: new Date().toISOString(),
     data: snapshot(),
   };
@@ -50,12 +50,13 @@ export function backup() {
     JSON.stringify(
       {
         format: "campo-catalogo",
-        version: 1,
-        appVersion: "0.1.0",
+        version: 2,
+        appVersion: "0.2.0",
         exportedAt: catalog.exportedAt,
         species: catalog.data.species.length,
         observations: catalog.data.observations.length,
         images: catalog.data.images.length,
+        notes: catalog.data.notes.length,
         checksums,
       },
       null,
@@ -66,12 +67,13 @@ export function backup() {
 }
 const manifestSchema = z.object({
   format: z.literal("campo-catalogo"),
-  version: z.literal(1),
+  version: z.union([z.literal(1), z.literal(2)]),
   appVersion: z.string(),
   exportedAt: z.iso.datetime(),
   species: z.number().int().nonnegative(),
   observations: z.number().int().nonnegative(),
   images: z.number().int().nonnegative(),
+  notes: z.number().int().nonnegative().optional(),
   checksums: z.record(z.string(), z.string().regex(/^[a-f0-9]{64}$/)),
 });
 export function validateRelations(data: ExportData) {
@@ -162,11 +164,15 @@ export function parseImport(bytes: Uint8Array) {
     if (strFromU8(files["database.sqlite"].slice(0, 15)) !== "SQLite format 3")
       throw new Error("Banco SQLite inválido.");
     parsed = JSON.parse(strFromU8(files["export.json"]));
-    const data = exportSchema.parse(parsed).data;
+    const imported = exportSchema.parse(parsed);
+    if (manifest.version !== imported.version)
+      throw new Error("Versões do manifesto e do catálogo divergem.");
+    const data = imported.data;
     if (
       manifest.species !== data.species.length ||
       manifest.observations !== data.observations.length ||
-      manifest.images !== data.images.length
+      manifest.images !== data.images.length ||
+      (manifest.version === 2 && manifest.notes !== data.notes.length)
     )
       throw new Error("Contagens do manifesto divergem.");
   } else parsed = JSON.parse(strFromU8(bytes));

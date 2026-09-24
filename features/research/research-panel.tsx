@@ -6,10 +6,12 @@ import {
   ArrowUpRight,
   BookOpen,
   RefreshCw,
+  NotebookPen,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Empty, Field, Modal, ErrorText, api, send } from "@/components/shared";
 import { EvidenceForm } from "./evidence-form";
+import { NotebookPanel } from "@/features/notebook/notebook-panel";
 import type { Catalog, Discovery } from "@/lib/validation/schemas";
 import { normalize } from "@/lib/utils";
 const discoveryStatuses: Record<string, string> = {
@@ -31,7 +33,7 @@ export function ResearchPanel({
   query: string;
   onSpecies: (id: string) => void;
 }) {
-  const [tab, setTab] = useState("discoveries"),
+  const [tab, setTab] = useState("notebook"),
     [species, setSpecies] = useState(""),
     [status, setStatus] = useState("all"),
     [adding, setAdding] = useState(false),
@@ -53,18 +55,38 @@ export function ResearchPanel({
       <ErrorText message={error} />
       {notice && <p className="notice">{notice}</p>}
       <div className="research-intro panel">
-        <FlaskConical size={32} />
+        {tab === "notebook" ? (
+          <NotebookPen size={32} />
+        ) : (
+          <FlaskConical size={32} />
+        )}
         <div>
-          <h3>Uma pergunta pode abrir muitos caminhos.</h3>
+          <h3>
+            {tab === "notebook"
+              ? "Entre uma descoberta e outra, uma página."
+              : "Uma pergunta pode abrir muitos caminhos."}
+          </h3>
           <p>
-            Investigue nomes aceitos e sinônimos na Europe PMC. Revise cada
-            descoberta antes de incorporá-la à ficha.
+            {tab === "notebook"
+              ? "Um espaço para suas leituras, ideias e anotações. Escreva livremente e volte quando quiser."
+              : "Investigue nomes aceitos e sinônimos na Europe PMC. Revise cada descoberta antes de incorporá-la à ficha."}
           </p>
         </div>
-        <span className="pill">CIÊNCIA COM CONTEXTO</span>
+        <span className="pill">
+          {tab === "notebook"
+            ? "SEU LIVRO EM CONSTRUÇÃO"
+            : "CIÊNCIA COM CONTEXTO"}
+        </span>
       </div>
       <div className="catalog-toolbar">
         <div className="tabs">
+          <button
+            className={tab === "notebook" ? "active" : ""}
+            onClick={() => setTab("notebook")}
+          >
+            <NotebookPen size={15} /> Caderno{" "}
+            <span>{data.notes.filter((note) => !note.archived).length}</span>
+          </button>
           <button
             className={tab === "discoveries" ? "active" : ""}
             onClick={() => setTab("discoveries")}
@@ -86,7 +108,9 @@ export function ResearchPanel({
           </Button>
         )}
       </div>
-      {tab === "discoveries" ? (
+      {tab === "notebook" ? (
+        <NotebookPanel notes={data.notes} query={query} refresh={refresh} />
+      ) : tab === "discoveries" ? (
         <>
           <div className="research-controls">
             <select

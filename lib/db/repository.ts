@@ -18,6 +18,7 @@ export const tableNames = [
   "discoveries",
   "research",
   "settings",
+  "notes",
 ] as const;
 export type TableName = (typeof tableNames)[number];
 export function list<T>(table: TableName): T[] {
@@ -98,6 +99,7 @@ export function catalog() {
     compounds: list("compounds"),
     evidence: list("evidence"),
     discoveries: list("discoveries"),
+    notes: list("notes"),
     plantnetConfigured: !!process.env.PLANTNET_API_KEY,
     passwordConfigured: !!process.env.CAMPO_PASSWORD,
   };
