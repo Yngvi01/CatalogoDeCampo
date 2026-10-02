@@ -1,3 +1,4 @@
+import { validateCustomValues } from "@/lib/validation/field";
 import { zipSync, unzipSync, strToU8, strFromU8 } from "fflate";
 import { createHash, randomUUID } from "node:crypto";
 import path from "node:path";
@@ -6,6 +7,7 @@ import { cloud, query, transaction } from "@/lib/db";
 import {
   snapshot,
   tableNames,
+  sqlTable,
   put,
   nextCode,
   type TableName,
@@ -18,21 +20,21 @@ import {
   removeObject,
 } from "@/lib/storage/objects";
 const sha = (b: Uint8Array) => createHash("sha256").update(b).digest("hex");
-export async function exportCatalog() {
+export async function exportCatalog(data?: ExportData) {
   return {
     format: "campo-catalogo" as const,
-    version: 2 as const,
+    version: 4 as const,
     exportedAt: new Date().toISOString(),
-    data: await snapshot(),
+    data: data ?? await snapshot(),
   };
 }
-export async function backup(): Promise<Uint8Array> {
+export async function backup(data?: ExportData): Promise<Uint8Array> {
   return transaction(async () => {
-    const catalog = await exportCatalog();
+    const catalog = await exportCatalog(data);
     const files: Record<string, Uint8Array> = {
       "export.json": strToU8(JSON.stringify(catalog, null, 2)),
     };
-    if (!cloud)
+    if (!cloud && !data)
       files["database.sqlite"] = (
         await import("@/lib/db/local")
       ).sqlite.serialize();
@@ -52,7 +54,10 @@ export async function backup(): Promise<Uint8Array> {
       JSON.stringify(
         {
           format: "campo-catalogo",
-          version: 2,
+          version: 4,
+          samplingSites: catalog.data.samplingSites.length,
+          projects: catalog.data.projects.length,
+          campaigns: catalog.data.campaigns.length,
           appVersion: "0.2.0",
           exportedAt: catalog.exportedAt,
           species: catalog.data.species.length,
@@ -71,12 +76,15 @@ export async function backup(): Promise<Uint8Array> {
 }
 const manifestSchema = z.object({
   format: z.literal("campo-catalogo"),
-  version: z.union([z.literal(1), z.literal(2)]),
+  version: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)]),
   appVersion: z.string(),
   exportedAt: z.iso.datetime(),
   species: z.number().int().nonnegative(),
   observations: z.number().int().nonnegative(),
   images: z.number().int().nonnegative(),
+  samplingSites: z.number().int().nonnegative().optional(),
+  projects: z.number().int().nonnegative().optional(),
+  campaigns: z.number().int().nonnegative().optional(),
   notes: z.number().int().nonnegative().optional(),
   bookmarks: z.number().int().nonnegative().optional(),
   checksums: z.record(z.string(), z.string().regex(/^[a-f0-9]{64}$/)),
@@ -96,7 +104,18 @@ export function validateRelations(data: ExportData) {
     data.observations.length
   )
     throw new Error("Códigos CAMPO duplicados.");
+  const projects = new Set(data.projects.map(p => p.id));
+  const campaigns = new Map(data.campaigns.map(c => [c.id, c]));
+  for (const c of data.campaigns)
+    if (!projects.has(c.projectId)) throw new Error("Projeto da campanha inexistente.");
+  const sites = new Map(data.samplingSites.map(s => [s.id, s]));
+  for (const site of data.samplingSites) if (!projects.has(site.projectId)) throw new Error("Projeto do ponto ou parcela inexistente.");
   for (const o of data.observations) {
+    if (o.samplingSiteId && (!o.projectId || sites.get(o.samplingSiteId)?.projectId !== o.projectId)) throw new Error("Ponto ou parcela inexistente ou de outro projeto.");
+    validateCustomValues(data.projects.find(p => p.id === o.projectId)?.fieldDefinitions || [], o.customValues || {}, false);
+    if (o.projectId && !projects.has(o.projectId)) throw new Error("Projeto da observação inexistente.");
+    if (o.campaignId && (!o.projectId || campaigns.get(o.campaignId)?.projectId !== o.projectId))
+      throw new Error("Campanha inexistente ou de outro projeto.");
     if (o.speciesId && !species.has(o.speciesId))
       throw new Error("Espécie de observação inexistente.");
     if ((o.latitude === null) !== (o.longitude === null))
@@ -178,7 +197,9 @@ export function parseImport(bytes: Uint8Array) {
       manifest.species !== data.species.length ||
       manifest.observations !== data.observations.length ||
       manifest.images !== data.images.length ||
-      (manifest.version === 2 && manifest.notes !== data.notes.length) ||
+      (manifest.version >= 2 && manifest.notes !== data.notes.length) ||
+      (manifest.version >= 3 && (manifest.projects !== data.projects.length || manifest.campaigns !== data.campaigns.length)) ||
+      (manifest.version === 4 && manifest.samplingSites !== data.samplingSites.length) ||
       (manifest.bookmarks !== undefined && manifest.bookmarks !== data.bookmarks.length)
     )
       throw new Error("Contagens do manifesto divergem.");
@@ -276,7 +297,7 @@ export async function importCatalog(
       await transaction(async () => {
         if (strategy === "restore")
           for (const n of [...tableNames].reverse())
-            await query(`DELETE FROM ${n}`);
+            await query(`DELETE FROM ${sqlTable(n)}`);
         for (const name of tableNames) {
           for (const raw of data[name]) {
             if (strategy === "new" && name === "settings") continue;
@@ -287,6 +308,9 @@ export async function importCatalog(
             if (strategy === "new") {
               r.id = maps[r.id];
               for (const key of [
+                "projectId",
+                "campaignId",
+                "samplingSiteId",
                 "observationId",
                 "speciesId",
                 "previousSpeciesId",
@@ -346,14 +370,21 @@ export async function importCatalog(
   });
 }
 
-export async function csv(table: "species" | "observations" | "compounds") {
-  const rows = (await snapshot())[table];
+export async function csv(table: "species" | "observations" | "compounds", data?: ExportData) {
+  const source = data ?? await snapshot();
+  const rows = table === "observations" ? source.observations.map(o => ({
+    ...o, projectId: o.projectId ?? null, campaignId: o.campaignId ?? null, samplingSiteId: o.samplingSiteId ?? null,
+    scientificName: source.species.find(s => s.id === o.speciesId)?.scientificName || "",
+    projectName: source.projects.find(p => p.id === o.projectId)?.name || "",
+    samplingSiteName: source.samplingSites.find(s => s.id === o.samplingSiteId)?.name || "",
+    campaignName: source.campaigns.find(c => c.id === o.campaignId)?.name || "",
+  })) : source[table];
   const keys = rows[0]
-    ? Object.keys(rows[0])
+    ? [...new Set(rows.flatMap(row => Object.keys(row)))]
     : table === "species"
       ? ["id", "scientificName", "commonNames"]
       : table === "observations"
-        ? ["id", "code", "observedAt", "region", "status"]
+        ? ["id", "code", "observedAt", "region", "status", "projectId", "campaignId", "scientificName", "projectName", "campaignName"]
         : ["id", "name", "chemicalClass"];
   const cell = (v: unknown) => {
     let s = typeof v === "object" ? JSON.stringify(v) : String(v ?? "");

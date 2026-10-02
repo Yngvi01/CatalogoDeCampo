@@ -1,3 +1,4 @@
+import { professionalAuth, scopeId } from "@/lib/workspace/context";
 import {
   createHash,
   createHmac,
@@ -19,6 +20,7 @@ const localSecret = randomBytes(32).toString("hex");
 const hash = (bytes: Uint8Array) =>
   createHash("sha256").update(bytes).digest("hex");
 const receiptSchema = z.object({
+  scope: z.string().nullable().optional(),
   data: observationInput,
   hashes: z
     .array(z.string().regex(/^[a-f0-9]{64}$/))
@@ -31,7 +33,7 @@ const receiptSchema = z.object({
   expires: z.number(),
 });
 function sign(body: string) {
-  return createHmac("sha256", process.env.CAMPO_PASSWORD || localSecret)
+  return createHmac("sha256", professionalAuth() ? process.env.SUPABASE_SERVICE_ROLE_KEY! : process.env.CAMPO_PASSWORD || localSecret)
     .update(`identification-preview:${body}`)
     .digest();
 }
@@ -49,6 +51,7 @@ export function readReceipt(receipt: string) {
   const result = receiptSchema.parse(
     JSON.parse(Buffer.from(body, "base64url").toString()),
   );
+  if ((result.scope ?? null) !== scopeId()) throw new Error("Resultado pertence a outra conta ou organização.");
   if (result.expires < Date.now())
     throw new Error("O resultado expirou. Faça a identificação novamente.");
   return result;
@@ -107,6 +110,7 @@ export async function previewIdentification(form: FormData) {
       ? await identifyPlantBytes(images, organs)
       : await fungi.identify(observation, []);
   const value = receiptSchema.parse({
+    scope: scopeId(),
     data,
     hashes,
     organs,

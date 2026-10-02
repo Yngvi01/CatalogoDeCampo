@@ -6,7 +6,7 @@ for (const f of process.env.CAMPO_E2E ? [] : [".env.local", ".env"])
   } catch {}
 const mode = process.argv[2] || "dev",
   lan = process.argv.includes("--lan");
-if (lan && !process.env.CAMPO_PASSWORD) {
+if (lan && !process.env.CAMPO_PASSWORD && process.env.CAMPO_AUTH !== "supabase") {
   console.error(
     "Defina CAMPO_PASSWORD em .env.local antes de iniciar na rede local.",
   );

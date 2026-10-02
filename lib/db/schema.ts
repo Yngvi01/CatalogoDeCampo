@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core";
+import { sqliteTable, text, integer, index } from "drizzle-orm/sqlite-core";
 import type {
   Species,
   Observation,
@@ -17,9 +17,12 @@ export const species = sqliteTable("species", {
 export const observations = sqliteTable("observations", {
   id: text("id").primaryKey(),
   code: text("code").notNull().unique(),
+  projectId: text("project_id").references(() => projects.id),
+  campaignId: text("campaign_id").references(() => campaigns.id),
+  samplingSiteId: text("sampling_site_id").references(() => samplingSites.id),
   speciesId: text("species_id").references(() => species.id),
   data: text("data", { mode: "json" }).$type<Observation>().notNull(),
-});
+}, table => [index("observations_project_idx").on(table.projectId), index("observations_campaign_idx").on(table.campaignId), index("observations_sampling_site_idx").on(table.samplingSiteId)]);
 export const images = sqliteTable("images", {
   id: text("id").primaryKey(),
   observationId: text("observation_id")
@@ -94,3 +97,19 @@ export const curatedExamples = sqliteTable("curated_examples", {
   id: text("id").primaryKey(),
   data: text("data", { mode: "json" }).notNull(),
 });
+
+export const projects = sqliteTable("projects", {
+  id: text("id").primaryKey(),
+  data: text("data", { mode: "json" }).$type<import("../validation/schemas").Project>().notNull(),
+});
+export const campaigns = sqliteTable("campaigns", {
+  id: text("id").primaryKey(),
+  projectId: text("project_id").notNull().references(() => projects.id),
+  data: text("data", { mode: "json" }).$type<import("../validation/schemas").Campaign>().notNull(),
+}, table => [index("campaigns_project_idx").on(table.projectId)]);
+
+export const samplingSites = sqliteTable("sampling_sites", {
+  id: text("id").primaryKey(),
+  projectId: text("project_id").notNull().references(() => projects.id),
+  data: text("data", { mode: "json" }).$type<import("../validation/field").SamplingSite>().notNull(),
+}, table => [index("sampling_sites_project_idx").on(table.projectId)]);

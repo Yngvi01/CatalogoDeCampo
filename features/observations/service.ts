@@ -1,3 +1,5 @@
+import { validateProjectFields } from "@/features/projects/field-service";
+import { validateFieldLinks } from "@/features/projects/service";
 import { randomUUID } from "node:crypto";
 import { transaction } from "@/lib/db";
 import {
@@ -28,6 +30,7 @@ export async function createObservation(
     queriedAt: string;
   },
   organs: string[] = [],
+  options: { id?: string; allowNoPhotos?: boolean } = {},
 ) {
   const input = observationInput.parse(
     JSON.parse(String(form.get("data") || "{}")),
@@ -35,11 +38,11 @@ export async function createObservation(
   const files = form
     .getAll("photos")
     .filter((f): f is File => f instanceof File && f.size > 0);
-  if ((!files.length && !identification) || files.length > 12)
+  if ((!files.length && !identification && !options.allowNoPhotos) || files.length > 12)
     throw new Error("Selecione entre 1 e 12 fotos.");
   if (files.reduce((n, f) => n + f.size, 0) > 100 * 1024 * 1024)
     throw new Error("O envio não pode superar 100 MB.");
-  const id = randomUUID(),
+  const id = options.id || randomUUID(),
     photos: Photo[] = [];
   try {
     for (const [index, f] of files.entries()) {
@@ -54,6 +57,8 @@ export async function createObservation(
         existingPhotos.some((x) => x.hash === p.hash),
     );
     const observation = await transaction(async () => {
+      await validateFieldLinks(input);
+      await validateProjectFields(input);
       const o: Observation = {
         ...input,
         id,

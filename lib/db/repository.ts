@@ -1,3 +1,4 @@
+import { professionalAuth, scopeId } from "../workspace/context";
 import { cloud, query, transaction } from "./index";
 import {
   exportDataSchema,
@@ -7,6 +8,9 @@ import {
 } from "../validation/schemas";
 import { normalize } from "../utils";
 export const tableNames = [
+  "projects",
+  "campaigns",
+  "samplingSites",
   "species",
   "observations",
   "images",
@@ -21,9 +25,10 @@ export const tableNames = [
   "notes",
 ] as const;
 export type TableName = (typeof tableNames)[number];
+export const sqlTable = (table: TableName) => table === "samplingSites" ? "sampling_sites" : table;
 export async function list<T>(table: TableName): Promise<T[]> {
   const rows = await query<{ data: string | T }>(
-    `SELECT data FROM ${table} ORDER BY ${cloud ? "position" : "rowid"}`,
+    `SELECT data FROM ${sqlTable(table)} ORDER BY ${cloud ? "position" : "rowid"}`,
   );
   return rows.map((r) =>
     typeof r.data === "string" ? (JSON.parse(r.data) as T) : r.data,
@@ -34,7 +39,7 @@ export async function get<T>(
   id: string,
 ): Promise<T | undefined> {
   const [r] = await query<{ data: string | T }>(
-    `SELECT data FROM ${table} WHERE id = $1`,
+    `SELECT data FROM ${sqlTable(table)} WHERE id = $1`,
     [id],
   );
   return r
@@ -53,8 +58,12 @@ export async function put(
     cloud ? record : JSON.stringify(record),
   ];
   if (table === "observations") {
-    columns.push("code", "species_id");
-    values.push(record.code, record.speciesId);
+    columns.push("code", "species_id", "project_id", "campaign_id", "sampling_site_id");
+    values.push(record.code, record.speciesId, record.projectId ?? null, record.campaignId ?? null, record.samplingSiteId ?? null);
+  }
+  if (table === "campaigns" || table === "samplingSites") {
+    columns.push("project_id");
+    values.push(record.projectId);
   }
   if (["images", "identifications", "history"].includes(table)) {
     columns.push("observation_id");
@@ -70,7 +79,7 @@ export async function put(
   }
   await transaction(async () => {
     await query(
-      `INSERT INTO ${table} (${columns.join(",")}) VALUES (${columns.map((_, i) => `$${i + 1}`).join(",")}) ON CONFLICT(id) DO UPDATE SET ${columns
+      `INSERT INTO ${sqlTable(table)} (${columns.join(",")}) VALUES (${columns.map((_, i) => `$${i + 1}`).join(",")}) ON CONFLICT(${professionalAuth() ? "organization_id,id" : "id"}) DO UPDATE SET ${columns
         .slice(1)
         .map((c) => `${c}=excluded.${c}`)
         .join(",")}`,
@@ -95,6 +104,9 @@ export async function nextCode() {
 export async function catalog() {
   const data = await snapshot();
   return {
+    samplingSites: data.samplingSites,
+    projects: data.projects,
+    campaigns: data.campaigns,
     species: data.species,
     observations: data.observations
       .map((o) => ({
@@ -108,7 +120,9 @@ export async function catalog() {
     discoveries: data.discoveries,
     notes: data.notes,
     plantnetConfigured: !!process.env.PLANTNET_API_KEY,
-    passwordConfigured: !!process.env.CAMPO_PASSWORD,
+    passwordConfigured: professionalAuth() || !!process.env.CAMPO_PASSWORD,
+    professionalAuth: professionalAuth(),
+    scope: scopeId(),
     storageMode: cloud ? "supabase" : "local",
   };
 }

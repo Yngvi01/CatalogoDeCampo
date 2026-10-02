@@ -2945,3 +2945,31 @@ details > summary {
 @media (max-width: 600px) { .offline-draft-list article { align-items: flex-start; flex-direction: column; } }
 @media (max-width: 900px) { .lotus-grid { grid-template-columns: 1fr; } }
 @media (max-width: 600px) { .lotus-intro { padding: 16px; } .lotus-intro h2 { font-size: 21px; } .lotus-modes button { flex: 1; padding: 9px; font-size: 10px; } .lotus-search { flex-direction: column; } }
+
+.projects-panel { display: grid; gap: 20px; }
+.project-card { padding: 22px; text-align: left; min-width: 0; }
+.project-card h3, .project-summary h2 { margin: 14px 0 8px; overflow-wrap: anywhere; }
+.project-card p, .project-summary p { white-space: pre-wrap; overflow-wrap: anywhere; }
+.project-summary { padding: 24px; }
+.project-summary dl { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; }
+.project-summary dt { opacity: .65; font-size: 12px; }
+.project-summary dd { margin: 6px 0 0; overflow-wrap: anywhere; }
+.project-records { display: grid; gap: 10px; }
+.project-record { display: flex; flex-wrap: wrap; gap: 12px; padding: 16px; text-align: left; }
+.project-record small { margin-left: auto; }
+.project-exports { flex-wrap: wrap; }
+.projects-panel .stats-grid { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+@media (max-width: 600px) { .project-record { flex-direction: column; } .project-record small { margin-left: 0; } }
+
+.field-sync, .sites-panel { padding: 20px; margin: 20px 0; }
+.field-sync .section-heading, .sites-panel .section-heading { margin-top: 0; flex-wrap: wrap; }
+.field-queue-row { display: flex; flex-wrap: wrap; gap: 12px; padding: 10px 0; border-top: 1px solid var(--border); }
+.field-queue-row small { flex-basis: 100%; }
+.field-definition { padding: 18px; margin: 18px 0; min-width: 0; }
+.field-choices { border: 1px solid var(--border); padding: 12px; margin: 0 0 18px; }
+.projects-panel .project-record { overflow-wrap: anywhere; }
+
+.workspace-row { display: flex; gap: .75rem; align-items: center; flex-wrap: wrap; margin: .75rem 0; }
+.workspace-row > span { flex: 1; min-width: 12rem; overflow-wrap: anywhere; }
+.workspace-row select { width: auto; }
+.workspace-audit { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 24rem; overflow: auto; font-size: .8rem; }

@@ -1,4 +1,5 @@
 "use client";
+import { clientScope, setClientScope } from "@/lib/http/scope";
 import { useEffect, useId, useRef } from "react";
 import { X, LoaderCircle } from "lucide-react";
 import { Button } from "./ui/button";
@@ -7,12 +8,16 @@ export async function api<T = unknown>(
   url: string,
   options?: RequestInit,
 ): Promise<T> {
-  const response = await fetch(`/api/${url}`, options);
+  const headers = new Headers(options?.headers);
+  if (clientScope() && !url.startsWith("workspace")) headers.set("X-Campo-Scope", clientScope()!);
+  const response = await fetch(`/api/${url}`, { ...options, headers });
   if (response.status === 401) {
     location.href = "/login";
     throw new Error("Entre novamente.");
   }
-  return readJsonResponse<T>(response);
+  const value = await readJsonResponse<T>(response);
+  if (url === "catalog" && value && typeof value === "object" && "scope" in value) setClientScope(typeof value.scope === "string" ? value.scope : null);
+  return value;
 }
 export const send = (value: unknown): RequestInit => ({
   method: "POST",

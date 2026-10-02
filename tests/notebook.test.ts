@@ -63,7 +63,7 @@ test("JSON e ZIP incluem páginas; mesclagem, duplicação e restauração prese
   const [notes, backup, repo] = await setup;
   const original = (await repo.snapshot()).notes[0];
   const json = await backup.exportCatalog();
-  assert.equal(json.version, 2);
+  assert.equal(json.version, 4);
   assert.deepEqual(json.data.notes, [original]);
   const zip = await backup.backup();
   const preview = await backup.previewImport(zip);

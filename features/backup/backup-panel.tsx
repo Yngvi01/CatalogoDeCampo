@@ -20,6 +20,9 @@ type Preview = {
   missingImages: number;
 };
 const labels: Record<string, string> = {
+  samplingSites: "Pontos e parcelas",
+  projects: "Projetos",
+  campaigns: "Campanhas",
   species: "Espécies",
   observations: "Observações",
   images: "Imagens",

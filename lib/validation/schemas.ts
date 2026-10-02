@@ -1,3 +1,4 @@
+import { fieldDefinitionsSchema, customValuesSchema, siteSchema, type SamplingSite } from "./field";
 import { z } from "zod";
 export const groupSchema = z.enum(["plant", "fungus"]);
 export const statusSchema = z.enum([
@@ -20,6 +21,10 @@ export const morphologySchema = z.record(
 );
 export const observationInput = z
   .object({
+    samplingSiteId: id.nullable().optional(),
+    customValues: customValuesSchema.optional(),
+    projectId: id.nullable().optional(),
+    campaignId: id.nullable().optional(),
     group: groupSchema.default("plant"),
     observedAt: time.optional(),
     region: short.default(""),
@@ -57,6 +62,10 @@ export const speciesSchema = z.object({
   createdAt: time,
 });
 export const observationSchema = z.object({
+  samplingSiteId: id.nullable().optional(),
+  customValues: customValuesSchema.optional(),
+  projectId: id.nullable().optional(),
+  campaignId: id.nullable().optional(),
   id,
   code: z.string().regex(/^CAMPO-\d{6,}$/),
   group: groupSchema,
@@ -247,7 +256,34 @@ export const noteUpdateSchema = noteInputSchema.partial().extend({
   archived: z.boolean().optional(),
   expectedUpdatedAt: time,
 });
+export const projectInput = z.object({
+  fieldDefinitions: fieldDefinitionsSchema.optional(),
+  name: z.string().trim().min(1).max(250),
+  description: long.default(""), client: short.default(""),
+  responsible: short.default(""), startDate: z.iso.date(),
+  endDate: z.iso.date().nullable().default(null), region: short.default(""),
+  latitude: z.number().min(-90).max(90).nullable().default(null),
+  longitude: z.number().min(-180).max(180).nullable().default(null),
+  area: long.default(""),
+  status: z.enum(["planned", "active", "completed", "archived"]).default("active"),
+  tags: z.array(z.string().trim().min(1).max(50)).max(30).default([]),
+  members: z.array(z.string().trim().min(1).max(250)).max(100).default([]),
+  notes: long.default(""),
+}).refine(v => !v.endDate || v.endDate >= v.startDate, "A data final deve ser posterior ou igual à inicial.")
+  .refine(v => (v.latitude === null) === (v.longitude === null), "Informe latitude e longitude juntas.");
+export const projectSchema = projectInput.extend({ id, createdAt: time, updatedAt: time });
+export const campaignInput = z.object({
+  projectId: id, name: z.string().trim().min(1).max(250), date: z.iso.date(),
+  team: z.array(z.string().trim().min(1).max(250)).max(100).default([]),
+  area: long.default(""), objective: long.default(""), conditions: long.default(""), notes: long.default(""),
+});
+export const campaignSchema = campaignInput.extend({ id, createdAt: time, updatedAt: time });
+export type Project = z.infer<typeof projectSchema>;
+export type Campaign = z.infer<typeof campaignSchema>;
 export const exportDataSchema = z.object({
+  projects: z.array(projectSchema).default([]),
+  campaigns: z.array(campaignSchema).default([]),
+  samplingSites: z.array(siteSchema).default([]),
   species: z.array(speciesSchema),
   observations: z.array(observationSchema),
   images: z.array(imageSchema),
@@ -263,6 +299,14 @@ export const exportDataSchema = z.object({
 });
 // v1 não tinha caderno. v2 exige notes, evitando perdas silenciosas em leitores antigos.
 export const exportSchema = z.discriminatedUnion("version", [
+  z.object({
+    format: z.literal("campo-catalogo"), version: z.literal(4), exportedAt: time,
+    data: exportDataSchema.extend({ projects: z.array(projectSchema), campaigns: z.array(campaignSchema), samplingSites: z.array(siteSchema) }),
+  }),
+  z.object({
+    format: z.literal("campo-catalogo"), version: z.literal(3), exportedAt: time,
+    data: exportDataSchema.extend({ projects: z.array(projectSchema), campaigns: z.array(campaignSchema) }),
+  }),
   z.object({
     format: z.literal("campo-catalogo"),
     version: z.literal(1),
@@ -289,6 +333,9 @@ export type Evidence = z.infer<typeof evidenceSchema>;
 export type Discovery = z.infer<typeof discoverySchema>;
 export type ExportData = z.infer<typeof exportDataSchema>;
 export type Catalog = {
+  samplingSites: SamplingSite[];
+  projects: Project[];
+  campaigns: Campaign[];
   species: Species[];
   observations: (Observation & { photos: Photo[] })[];
   compounds: Compound[];
@@ -298,5 +345,7 @@ export type Catalog = {
   notes: Note[];
   plantnetConfigured: boolean;
   passwordConfigured: boolean;
+  professionalAuth?: boolean;
+  scope?: string | null;
   storageMode: "local" | "supabase";
 };

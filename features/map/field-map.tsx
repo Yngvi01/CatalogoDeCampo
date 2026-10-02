@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
+import type { SamplingSite } from "@/lib/validation/field";
 import type { Catalog, Species } from "@/lib/validation/schemas";
 import { MapPin } from "lucide-react";
 import { statuses, dateLabel } from "@/lib/utils";
@@ -9,10 +10,14 @@ export default function FieldMap({
   observations,
   species,
   onOpen,
+  showList = true,
+  samplingSites = [],
 }: {
   observations: Catalog["observations"];
   species: Species[];
   onOpen: (id: string) => void;
+  showList?: boolean;
+  samplingSites?: SamplingSite[];
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const [error, setError] = useState("");
@@ -63,18 +68,32 @@ export default function FieldMap({
           .addTo(map);
         bounds.extend([o.longitude!, o.latitude!]);
       }
-      if (located.length)
+      for (const site of samplingSites) {
+        const coordinates = site.geometry.type === "Point" ? [site.geometry.coordinates] : site.geometry.type === "LineString" ? site.geometry.coordinates : site.geometry.coordinates.flat();
+        for (const coordinate of coordinates) bounds.extend([coordinate[0],coordinate[1]]);
+      }
+      map.once("load", () => {
+        map.addSource("sampling", { type: "geojson", data: { type: "FeatureCollection", features: samplingSites.map(site => ({ type: "Feature", geometry: site.geometry, properties: { id: site.id, name: site.name } })) } });
+        map.addLayer({ id: "sampling-fill", type: "fill", source: "sampling", filter: ["==",["geometry-type"],"Polygon"], paint: { "fill-color": "#a1c46b", "fill-opacity": .2 } });
+        map.addLayer({ id: "sampling-lines", type: "line", source: "sampling", filter: ["!=",["geometry-type"],"Point"], paint: { "line-color": "#a1c46b", "line-width": 3 } });
+        map.addLayer({ id: "sampling-points", type: "circle", source: "sampling", filter: ["==",["geometry-type"],"Point"], paint: { "circle-radius": 7, "circle-color": "#a1c46b", "circle-stroke-color": "#141a17", "circle-stroke-width": 2 } });
+        for (const layer of ["sampling-fill", "sampling-lines", "sampling-points"]) map.on("click", layer, event => {
+          const name = event.features?.[0]?.properties?.name;
+          if (typeof name === "string") new maplibregl.Popup().setLngLat(event.lngLat).setText(name).addTo(map);
+        });
+      });
+      if (located.length || samplingSites.length)
         map.fitBounds(bounds, { padding: 70, maxZoom: 13, duration: 0 });
     } catch {
       setError("O navegador não disponibilizou WebGL para renderizar o mapa.");
     }
     return () => map?.remove();
-  }, [observations]);
+  }, [observations, samplingSites]);
   return (
     <>
       <div className="map-panel panel">
         <div ref={ref} className="field-map" />
-        {!located.length && (
+        {!located.length && !samplingSites.length && (
           <div className="map-empty">
             <MapPin size={22} />
             <strong>Um território a descobrir</strong>
@@ -89,7 +108,7 @@ export default function FieldMap({
         {located.length} observações no mapa ·{" "}
         {observations.length - located.length} sem coordenadas
       </p>
-      <div className="field-list">
+      {showList && <div className="field-list">
         {observations.map((o) => (
           <button key={o.id} onClick={() => onOpen(o.id)}>
             {o.photos[0] && (
@@ -107,7 +126,7 @@ export default function FieldMap({
             <small>{statuses[o.status]}</small>
           </button>
         ))}
-      </div>
+      </div>}
     </>
   );
 }

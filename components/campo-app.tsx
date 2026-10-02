@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import dynamic from "next/dynamic";
 import {
+  FolderOpen,
   Sprout,
   ScanLine,
   Map,
@@ -32,6 +33,9 @@ import { Botanical } from "./botanical";
 import { NatureCard } from "@/features/nature/nature-card";
 import { ReflectionCard } from "@/features/reflections/reflection-card";
 import { Empty, Loading, api } from "./shared";
+import { WorkspacePanel } from "@/features/workspace/workspace-panel";
+import { SyncPanel } from "@/features/field/sync-panel";
+import { ProjectsPanel } from "@/features/projects/projects-panel";
 import { NewObservation } from "@/features/observations/new-observation";
 import { deleteDraft, listDrafts, type OfflineDraft } from "@/lib/offline/drafts";
 import { ObservationDetail } from "@/features/observations/observation-detail";
@@ -47,10 +51,11 @@ const FieldMap = dynamic(() => import("@/features/map/field-map"), {
   ssr: false,
   loading: () => <Loading />,
 });
-type Area = "identify" | "field" | "catalog" | "research" | "notebook" | "library";
+type Area = "projects" | "identify" | "field" | "catalog" | "research" | "notebook" | "library";
 const navigation = [
+  { id: "projects" as const, label: "Projetos", icon: FolderOpen },
   { id: "identify" as const, label: "Identificar", icon: ScanLine },
-  { id: "field" as const, label: "Campo", icon: Map },
+  { id: "field" as const, label: "Mapa", icon: Map },
   { id: "catalog" as const, label: "Catálogo", icon: Library },
   { id: "library" as const, label: "Biblioteca", icon: BookOpen },
   { id: "notebook" as const, label: "Meu caderno", icon: NotebookPen },
@@ -62,6 +67,7 @@ export function CampoApp() {
     [error, setError] = useState(""),
     [notice, setNotice] = useState(""),
     [newOpen, setNewOpen] = useState(false),
+    [fieldContext, setFieldContext] = useState<{ projectId: string; campaignId?: string } | null>(null),
     [offlineDrafts, setOfflineDrafts] = useState<OfflineDraft[]>([]),
     [resumeDraft, setResumeDraft] = useState<OfflineDraft | null>(null),
     [draftError, setDraftError] = useState(""),
@@ -82,6 +88,7 @@ export function CampoApp() {
   const refresh = useCallback(async () => {
     try {
       setData(await api<Catalog>("catalog"));
+      setOfflineDrafts(await listDrafts());
       setError("");
     } catch (e) {
       setError((e as Error).message);
@@ -93,7 +100,6 @@ export function CampoApp() {
   }, []);
   useEffect(() => {
     void refresh();
-    void refreshDrafts();
     if ("serviceWorker" in navigator)
       navigator.serviceWorker.register("/sw.js").catch(() => {});
   }, [refresh, refreshDrafts]);
@@ -236,6 +242,7 @@ export function CampoApp() {
       </aside>
       <div className="main-shell">
         <header className="topbar">
+          <WorkspacePanel />
           <div className="breadcrumb">
             <span>Meu espaço</span>
             <ChevronRight size={13} />
@@ -293,7 +300,9 @@ export function CampoApp() {
           <div className="page-heading">
             <div>
               <span className="eyebrow">
-                {area === "identify"
+                {area === "projects"
+                  ? "ORGANIZE SEU TRABALHO DE CAMPO"
+                  : area === "identify"
                   ? "CURIOSIDADE EM ESTADO NATURAL"
                   : area === "field"
                     ? "SEUS ENCONTROS NO TERRITÓRIO"
@@ -306,7 +315,7 @@ export function CampoApp() {
                         : "PLANTAS · SUBSTÂNCIAS · FONTES"}
               </span>
               <h1>
-                {area === "identify"
+                {area === "projects" ? "Projetos de campo" : area === "identify"
                   ? "Cada encontro, uma descoberta."
                   : area === "field"
                     ? "Seu caderno de campo."
@@ -319,7 +328,7 @@ export function CampoApp() {
                         : "Explore substâncias em plantas."}
               </h1>
               <p>
-                {area === "identify"
+                {area === "projects" ? "Projetos, campanhas e registros conectados ao seu catálogo." : area === "identify"
                   ? "Um lugar para observar, identificar e conhecer o que vive ao seu redor."
                   : area === "field"
                     ? "Explore onde e quando você encontrou cada organismo."
@@ -332,7 +341,7 @@ export function CampoApp() {
                         : "Encontre relações documentadas e examine a evidência antes de incorporá-las ao seu catálogo."}
               </p>
             </div>
-            <Button onClick={() => setNewOpen(true)}>
+            <Button onClick={() => { setFieldContext(null); setNewOpen(true); }}>
               <Plus size={18} /> Nova observação
             </Button>
           </div>
@@ -359,7 +368,7 @@ export function CampoApp() {
                         Registre o encontro e construa seu próprio conhecimento.
                       </p>
                       <div className="actions">
-                        <Button onClick={() => setNewOpen(true)}>
+                        <Button onClick={() => { setFieldContext(null); setNewOpen(true); }}>
                           <ScanLine size={17} /> Identificar um organismo{" "}
                           <ArrowRight size={17} />
                         </Button>
@@ -382,7 +391,7 @@ export function CampoApp() {
                     {draftError && <p role="alert" className="error">{draftError}</p>}
                     {offlineDrafts.length ? <div className="offline-draft-list">{offlineDrafts.map(item => <article key={item.id}>
                       <div><strong>{item.data.region || (item.data.group === "plant" ? "Planta sem local informado" : "Fungo sem local informado")}</strong><small>{new Date(item.data.observedAt).toLocaleString("pt-BR")} · {item.photos.length} {item.photos.length === 1 ? "foto" : "fotos"}</small></div>
-                      <div className="offline-draft-actions"><Button type="button" size="sm" onClick={() => { setResumeDraft(item); setNewOpen(true); }}>Continuar rascunho</Button><Button type="button" size="sm" variant="outline" onClick={async () => {
+                      <div className="offline-draft-actions"><Button type="button" size="sm" onClick={() => { setFieldContext(null); setResumeDraft(item); setNewOpen(true); }}>Continuar rascunho</Button><Button type="button" size="sm" variant="outline" onClick={async () => {
                         if (!window.confirm("Excluir este rascunho e suas fotos deste aparelho?")) return;
                         try { await deleteDraft(item.id); await refreshDrafts(); } catch (cause) { setDraftError((cause as Error).message); }
                       }}>Excluir rascunho</Button></div>
@@ -433,7 +442,7 @@ export function CampoApp() {
                   </div>
                 </>
               )}
-              {area !== "research" && area !== "notebook" && area !== "library" && (
+              {area !== "projects" && area !== "research" && area !== "notebook" && area !== "library" && (
                 <>
                   <div className="section-heading">
                     <div>
@@ -621,6 +630,7 @@ export function CampoApp() {
                   )}
                   {area === "field" ? (
                     <FieldMap
+                      samplingSites={data.samplingSites}
                       observations={observations}
                       species={data.species}
                       onOpen={setObservationId}
@@ -690,7 +700,7 @@ export function CampoApp() {
                         action={
                           <Button
                             variant="outline"
-                            onClick={() => setNewOpen(true)}
+                            onClick={() => { setFieldContext(null); setNewOpen(true); }}
                           >
                             <Plus size={16} /> Registrar um encontro
                           </Button>
@@ -769,7 +779,7 @@ export function CampoApp() {
                       action={
                         <Button
                           variant="outline"
-                          onClick={() => setNewOpen(true)}
+                          onClick={() => { setFieldContext(null); setNewOpen(true); }}
                         >
                           <Plus size={16} /> Criar primeira observação
                         </Button>
@@ -779,6 +789,8 @@ export function CampoApp() {
                 </>
               )}
               {area === "catalog" && !hasFilters && <CatalogExampleCards onNew={() => setNewOpen(true)} view={view as "grid" | "list"} />}
+              {(area === "projects" || area === "identify" || area === "field") && <SyncPanel refresh={refresh} />}
+              {area === "projects" && <ProjectsPanel data={data} query={query} refresh={refresh} onObservation={setObservationId} onNew={(projectId, campaignId) => { setFieldContext({ projectId, campaignId }); setNewOpen(true); }} />}
               {area === "library" && <LibraryPanel query={query} />}
               {area === "notebook" && (
                 <NotebookPanel notes={data.notes} query={query} refresh={refresh} />
@@ -831,11 +843,17 @@ export function CampoApp() {
         <NewObservation
           key={resumeDraft?.id || "new"}
           draft={resumeDraft}
-          onClose={() => { setNewOpen(false); setResumeDraft(null); }}
-          onDraftSaved={async () => { await refreshDrafts(); setNewOpen(false); setResumeDraft(null); setNotice("Rascunho guardado neste aparelho. Retome quando quiser."); }}
+          projects={data?.projects || []}
+          campaigns={data?.campaigns || []}
+          samplingSites={data?.samplingSites || []}
+          projectId={fieldContext?.projectId}
+          campaignId={fieldContext?.campaignId}
+          onClose={() => { setNewOpen(false); setResumeDraft(null); setFieldContext(null); }}
+          onDraftSaved={async () => { await refreshDrafts(); setNewOpen(false); setResumeDraft(null); setFieldContext(null); setNotice("Rascunho guardado neste aparelho. Retome quando quiser."); }}
           onSaved={async (id, message) => {
             setNewOpen(false);
             setResumeDraft(null);
+            setFieldContext(null);
             await refresh();
             await refreshDrafts();
             setObservationId(id);

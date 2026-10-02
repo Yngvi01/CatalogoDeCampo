@@ -1,4 +1,5 @@
 "use client";
+import { FieldLinks } from "@/features/projects/field-links";
 import { useEffect, useState, useCallback } from "react";
 import {
   ScanLine,
@@ -224,6 +225,10 @@ export function ObservationDetail({
               </p>
               <dl>
                 {[
+                  ["Ponto / parcela", catalog.samplingSites.find(s => s.id === data.samplingSiteId)?.name],
+                  ...Object.entries(data.customValues || {}).map(([key, value]) => [catalog.projects.find(p => p.id === data.projectId)?.fieldDefinitions?.find(f => f.id === key)?.label || key, typeof value === "object" ? JSON.stringify(value) : String(value)]),
+                  ["Projeto", catalog.projects.find(p => p.id === data.projectId)?.name],
+                  ["Campanha", catalog.campaigns.find(c => c.id === data.campaignId)?.name],
                   ["Habitat", data.habitat],
                   ["Substrato", data.substrate],
                   ["Vegetação", data.vegetation],
@@ -293,8 +298,10 @@ export function ObservationDetail({
                   "notes",
                 ])
                   value[k] = f.get(k) || "";
+                for (const k of ["projectId", "campaignId", "samplingSiteId"]) value[k] = f.get(k) || null;
                 for (const k of ["latitude", "longitude", "altitude"])
                   value[k] = f.get(k) ? Number(f.get(k)) : null;
+                value.customValues = JSON.parse(String(f.get("customValues") || "{}"));
                 value.observedAt = new Date(
                   String(f.get("observedAt")),
                 ).toISOString();
@@ -312,6 +319,7 @@ export function ObservationDetail({
                 });
               }}
             >
+              <FieldLinks samplingSites={catalog.samplingSites} samplingSiteId={data.samplingSiteId} customValues={data.customValues} projects={catalog.projects} campaigns={catalog.campaigns} projectId={data.projectId} campaignId={data.campaignId} />
               <div className="form-grid">
                 {[
                   ["region", "Local"],

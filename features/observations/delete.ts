@@ -1,3 +1,4 @@
+import { professionalAuth } from "@/lib/workspace/context";
 import { cloud, query, transaction } from "@/lib/db";
 import { get, list } from "@/lib/db/repository";
 import type { Photo } from "@/lib/validation/schemas";
@@ -51,7 +52,7 @@ export async function deleteObservation(id: string) {
     const job: Job = { files: [...new Set(photos.flatMap(filenames))] };
     if (job.files.length)
       await query(
-        "INSERT INTO cache (id,provider,query,data,created_at,expires_at) VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT(id) DO UPDATE SET data=excluded.data",
+        `INSERT INTO cache (id,provider,query,data,created_at,expires_at) VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT(${professionalAuth() ? "organization_id,id" : "id"}) DO UPDATE SET data=excluded.data`,
         [
           `photo-deletion:${id}`,
           provider,

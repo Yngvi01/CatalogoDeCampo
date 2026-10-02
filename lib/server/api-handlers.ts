@@ -1,3 +1,8 @@
+import { professionalAuth, requireIdentity, scopeId } from "@/lib/workspace/context";
+import { saveSite, importSites, validateProjectFields } from "@/features/projects/field-service";
+import { createQuickObservation, quickInput } from "@/features/observations/quick-service";
+import { fieldDefinitionsSchema } from "@/lib/validation/field";
+import { saveProject, saveCampaign, validateFieldLinks, projectData, projectGeoJSON } from "@/features/projects/service";
 import {
   deleteObservation,
   cleanupDeletedPhotos,
@@ -27,6 +32,7 @@ import {
   evidenceSchema,
   discoverySchema,
   observationInput,
+  type Project,
   type Photo,
   type Observation,
   type Discovery,
@@ -59,7 +65,8 @@ type Context = { params: Promise<{ path: string[] }> };
 const json = (v: unknown, status = 200) =>
   NextResponse.json(v, { status, headers: { "Cache-Control": "no-store" } });
 function authorize(request: NextRequest) {
-  if (!validToken(request.cookies.get("campo-session")?.value))
+  if (professionalAuth()) requireIdentity();
+  if (!professionalAuth() && !validToken(request.cookies.get("campo-session")?.value))
     throw new Error("Sessão expirada. Entre novamente.");
   if (!["GET", "HEAD"].includes(request.method) && !sameOrigin(request))
     throw new Error("Origem não autorizada.");
@@ -130,13 +137,38 @@ export async function GET(request: NextRequest, ctx: Context) {
   try {
     authorize(request);
     const [area, id, action] = (await ctx.params).path;
+    if (area === "field" && id === "context") return json({ scope: scopeId(), projects: await list("projects"), campaigns: await list("campaigns"), samplingSites: await list("samplingSites") });
+    if (area === "field" && id === "observations" && action) {
+      z.uuid().parse(action);
+      return json({ observation: await get<Observation>("observations", action) || null });
+    }
+    if (area === "projects" && id && action === "export") {
+      const params = request.nextUrl.searchParams;
+      const format = z.enum(["csv", "json", "geojson", "zip"]).parse(params.get("format"));
+      const filters = z.object({ campaignId: z.string().min(1).optional(), from: z.iso.date().optional(), to: z.iso.date().optional(), speciesId: z.string().min(1).optional(), samplingSiteId: z.string().min(1).optional() })
+        .parse(Object.fromEntries(["campaignId", "from", "to", "speciesId", "samplingSiteId"].filter(k => params.has(k)).map(k => [k, params.get(k)])));
+      if (filters.from && filters.to && filters.from > filters.to) throw new Error("Período inválido.");
+      const data = await projectData(id, filters);
+      const bytes = format === "zip" ? await backup(data) : Buffer.from(format === "csv" ? await csv("observations", data) : JSON.stringify(format === "geojson" ? projectGeoJSON(data) : await exportCatalog(data), null, 2));
+      const filename = `campo-projeto.${format}`;
+      if (cloud) {
+        await cleanupTemporaryObjects("exports");
+        const key = `exports/${randomUUID()}.${format}`;
+        await writeObject(key, bytes);
+        return NextResponse.redirect(await signedDownload(key, filename));
+      }
+      return new Response(new Uint8Array(bytes), { headers: {
+        "Content-Type": format === "zip" ? "application/zip" : format === "csv" ? "text/csv; charset=utf-8" : format === "geojson" ? "application/geo+json" : "application/json",
+        "Content-Disposition": `attachment; filename="${filename}"`, "Cache-Control": "no-store",
+      } });
+    }
     if (area === "storage")
       return json({
         direct: cloud,
         importMaxBytes: cloud ? 50 * 1024 * 1024 : 256 * 1024 * 1024,
       });
     if (area === "catalog") {
-      await cleanupDeletedPhotos();
+      if (!professionalAuth() || requireIdentity().role !== "viewer") await cleanupDeletedPhotos();
       return json(await catalog());
     }
     if (area === "nature-photos") return json(await getNaturePhotos());
@@ -244,6 +276,24 @@ export async function POST(request: NextRequest, ctx: Context) {
   try {
     authorize(request);
     const [area, id, action] = (await ctx.params).path;
+    if (area === "field" && id === "observations" && !action) {
+      if (!cloud) return json(await createQuickObservation(await limitedForm(request, 101 * 1024 * 1024)), 201);
+      const value = z.object({ capture: quickInput, uploads: z.array(z.string()).max(5) }).parse(await limitedJson(request));
+      const existing = await get<Observation>("observations", value.capture.clientId);
+      if (existing) return json({ observation: existing, replayed: true });
+      const form = new FormData(); form.set("data", JSON.stringify(value.capture));
+      try {
+        for (const ticket of value.uploads) {
+          const { bytes, payload } = await readUpload(ticket, "photo");
+          form.append("photos", new File([new Uint8Array(bytes)], payload.name, { type: payload.type }));
+        }
+        return json(await createQuickObservation(form), 201);
+      } finally { await Promise.all(value.uploads.map(ticket => discardUpload(ticket, "photo").catch(() => {}))); }
+    }
+    if (area === "sampling-sites" && !id) return json(await saveSite(await limitedJson(request)), 201);
+    if (area === "projects" && id && action === "import-geojson") return json(await importSites(id, await limitedJson(request, 2 * 1024 * 1024)), 201);
+    if (area === "projects" && !id) return json(await saveProject(await limitedJson(request)), 201);
+    if (area === "campaigns" && !id) return json(await saveCampaign(await limitedJson(request)), 201);
     const length = Number(request.headers.get("content-length") || 0);
     if (length > 270 * 1024 * 1024)
       return json({ error: "Arquivo muito grande." }, 413);
@@ -412,15 +462,27 @@ export async function POST(request: NextRequest, ctx: Context) {
 export async function PATCH(request: NextRequest, ctx: Context) {
   try {
     authorize(request);
-    const [area, id] = (await ctx.params).path;
+    const [area, id, action] = (await ctx.params).path;
     const input = await limitedJson(request);
     return await transaction(async () => {
+      if (area === "projects" && id && action === "fields") {
+        const value = z.object({ definitions: fieldDefinitionsSchema, expectedUpdatedAt: z.iso.datetime() }).parse(input);
+        const current = await get<Project>("projects", id);
+        if (!current) throw new Error("Projeto não encontrado.");
+        if (current.updatedAt !== value.expectedUpdatedAt) return json({ error: "O projeto foi alterado. Reabra o formulário antes de salvar." }, 409);
+        return json(await saveProject({ ...current, fieldDefinitions: value.definitions }, id));
+      }
+      if (area === "sampling-sites" && id) return json(await saveSite(input, id));
+      if (area === "projects" && id) return json(await saveProject(input, id));
+      if (area === "campaigns" && id) return json(await saveCampaign(input, id));
       if (area === "notes" && id) return json(await updateNote(id, input));
       if (area === "species") return json(await updateSpecies(id, input));
       if (area === "observations") {
         const current = await get<Observation>("observations", id);
         if (!current) throw new Error("Observação não encontrada.");
         const value = observationInput.parse({ ...current, ...input });
+        await validateFieldLinks(value);
+        await validateProjectFields(value);
         if (value.group !== current.group && current.speciesId)
           throw new Error("A espécie vinculada define o grupo da observação.");
         const record = {

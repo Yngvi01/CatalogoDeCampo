@@ -1,5 +1,6 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import postgres from "postgres";
+import { professionalAuth, requireIdentity } from "../workspace/context";
 import { cloud } from "./config";
 export { dataDir, cloud } from "./config";
 
@@ -42,27 +43,47 @@ export async function query<T = Record<string, unknown>>(
   statement: string,
   values: unknown[] = [],
 ): Promise<T[]> {
+  if (professionalAuth() && !cloud) throw new Error("Contas profissionais exigem CAMPO_STORAGE=supabase.");
   const active = context.getStore();
   if (active) return (await active(statement, values)) as T[];
   if (!cloud)
     return exclusive(
       async () => (await localExecute(statement, values)) as T[],
     );
+  if (professionalAuth()) {
+    return await scopedPostgres(async () => query<T>(statement, values));
+  }
+  await requireCompatibleSchema();
   return (await pg().unsafe(statement, values as never[])) as unknown as T[];
+}
+export async function requireCompatibleSchema() {
+  const [schema] = await pg()`SELECT to_regclass('public.organizations') IS NOT NULL AS professional`;
+  if (schema.professional) throw new Error("Este banco exige CAMPO_AUTH=supabase. A senha compartilhada não pode acessar organizações.");
+}
+async function scopedPostgres<T>(fn: () => Promise<T>): Promise<T> {
+  const identity = professionalAuth() ? requireIdentity() : undefined;
+  if (!identity) await requireCompatibleSchema();
+  return (await pg().begin(async (sql) => {
+    if (identity) {
+      await sql.unsafe("SET LOCAL ROLE authenticated");
+      await sql`select set_config('request.jwt.claim.sub', ${identity.userId}, true), set_config('request.jwt.claim.role', 'authenticated', true), set_config('request.jwt.claims', ${JSON.stringify({ sub: identity.userId, role: "authenticated" })}, true), set_config('campo.organization_id', ${identity.organizationId || ""}, true)`;
+    }
+    const execute: Executor = async (statement, values = []) =>
+      (await sql.unsafe(statement, values as never[])) as unknown as Record<string, unknown>[];
+    return context.run(execute, fn);
+  })) as T;
 }
 /** All mutations use the same transaction lock; numbering and read-modify-write stay atomic. */
 export async function transaction<T>(fn: () => Promise<T>): Promise<T> {
+  if (professionalAuth() && !cloud) throw new Error("Contas profissionais exigem CAMPO_STORAGE=supabase.");
   if (context.getStore()) return fn();
   if (cloud) {
-    return (await pg().begin(async (sql) => {
-      await sql`select pg_advisory_xact_lock(728194601)`;
-      const execute: Executor = async (statement, values = []) =>
-        (await sql.unsafe(statement, values as never[])) as unknown as Record<
-          string,
-          unknown
-        >[];
-      return context.run(execute, fn);
-    })) as T;
+    return await scopedPostgres(async () => {
+      // The lock is per organization; separate organizations can work concurrently.
+      const identity = professionalAuth() ? requireIdentity() : undefined;
+      await query("select pg_advisory_xact_lock(hashtextextended($1, 0))", [identity?.organizationId || "campo-local"]);
+      return fn();
+    });
   }
   return exclusive(async () => {
     const { sqlite } = await import("./local");

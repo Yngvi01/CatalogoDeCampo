@@ -1,3 +1,4 @@
+import { storagePrefix } from "../workspace/context";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { mkdir, readFile, writeFile, unlink } from "node:fs/promises";
 import path from "node:path";
@@ -18,10 +19,11 @@ function validateKey(key: string) {
     throw new Error("Caminho de arquivo inválido.");
   return key;
 }
+export function scopedKey(key: string) { return storagePrefix() + validateKey(key); }
 export async function readObject(key: string): Promise<Buffer> {
   validateKey(key);
   if (!cloud) return readFile(path.join(dataDir, key));
-  const { data, error } = await storage().download(key);
+  const { data, error } = await storage().download(scopedKey(key));
   if (error)
     throw new Error("Não foi possível ler o arquivo no Supabase Storage.");
   return Buffer.from(await data.arrayBuffer());
@@ -37,7 +39,7 @@ export async function objectExists(key: string): Promise<boolean> {
       throw error;
     }
   }
-  const { error } = await storage().info(key);
+  const { error } = await storage().info(scopedKey(key));
   if (error && String((error as { statusCode?: string }).statusCode) === "404") return false;
   if (error)
     throw new Error(
@@ -60,7 +62,7 @@ export async function writeObject(
     throw new Error(
       "O arquivo excede o limite de 50 MB do armazenamento na nuvem. Exporte o JSON ou use o backup local para catálogos maiores.",
     );
-  const { error } = await storage().upload(key, bytes, {
+  const { error } = await storage().upload(scopedKey(key), bytes, {
     contentType,
     upsert: false,
   });
@@ -77,14 +79,14 @@ export async function removeObject(key: string) {
     }
     return;
   }
-  const { error } = await storage().remove([key]);
+  const { error } = await storage().remove([scopedKey(key)]);
   if (error)
     throw new Error("Não foi possível remover o arquivo no Supabase Storage.");
 }
 export async function signedDownload(key: string, filename?: string) {
   validateKey(key);
   const { data, error } = await storage().createSignedUrl(
-    key,
+    scopedKey(key),
     300,
     filename ? { download: filename } : {},
   );
@@ -95,7 +97,7 @@ export async function signedDownload(key: string, filename?: string) {
 /** Abandoned uploads and export copies expire; permanent images/backups stay intact. */
 export async function cleanupTemporaryObjects(prefix: "uploads" | "exports") {
   if (!cloud) return;
-  const { data, error } = await storage().list(prefix, {
+  const { data, error } = await storage().list(storagePrefix() + prefix, {
     limit: 100,
     sortBy: { column: "created_at", order: "asc" },
   });
@@ -106,6 +108,6 @@ export async function cleanupTemporaryObjects(prefix: "uploads" | "exports") {
         item.created_at &&
         Date.parse(item.created_at) < Date.now() - 24 * 60 * 60 * 1000,
     )
-    .map((item) => `${prefix}/${item.name}`);
+    .map((item) => `${storagePrefix()}${prefix}/${item.name}`);
   if (expired.length) await storage().remove(expired);
 }

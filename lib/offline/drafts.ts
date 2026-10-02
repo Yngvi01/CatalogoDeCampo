@@ -1,8 +1,14 @@
+import { clientScope } from "../http/scope";
 export type OfflineDraft = {
+  scope?: string | null;
   id: string;
   createdAt: string;
   updatedAt: string;
   data: {
+    samplingSiteId?: string | null;
+    customValues?: import("@/lib/validation/field").CustomValues;
+    projectId?: string | null;
+    campaignId?: string | null;
     group: "plant" | "fungus";
     observedAt: string;
     region: string;
@@ -47,6 +53,7 @@ async function run<T>(mode: IDBTransactionMode, action: (store: IDBObjectStore) 
 }
 
 export const listDrafts = async () => (await run<OfflineDraft[]>("readonly", store => store.getAll()))
+  .filter(draft => (draft.scope ?? null) === clientScope())
   .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
-export const putDraft = (draft: OfflineDraft) => run<IDBValidKey>("readwrite", store => store.put(draft));
+export const putDraft = (draft: OfflineDraft) => run<IDBValidKey>("readwrite", store => store.put({ ...draft, scope: draft.scope ?? clientScope() }));
 export const deleteDraft = (id: string) => run<undefined>("readwrite", store => store.delete(id));

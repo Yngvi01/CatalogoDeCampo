@@ -32,8 +32,8 @@ export async function limitedForm(request: Request, maxBytes: number) {
     headers: { "Content-Type": request.headers.get("content-type") || "" },
   }).formData();
 }
-export async function limitedJson(request: Request) {
+export async function limitedJson(request: Request, maxBytes = 1024 * 1024) {
   return JSON.parse(
-    new TextDecoder().decode(await limitedBody(request, 1024 * 1024)),
+    new TextDecoder().decode(await limitedBody(request, maxBytes)),
   );
 }

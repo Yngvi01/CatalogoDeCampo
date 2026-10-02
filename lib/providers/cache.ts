@@ -1,3 +1,4 @@
+import { professionalAuth, workspaceIdentity } from "../workspace/context";
 import { createHash } from "node:crypto";
 import { cloud, query as execute } from "../db";
 export async function cached<T>(
@@ -20,8 +21,9 @@ export async function cached<T>(
       typeof row.data === "string" ? JSON.parse(row.data) : row.data
     ) as T;
   const value = await fetcher();
+  if (workspaceIdentity()?.role === "viewer") return value;
   await execute(
-    "INSERT INTO cache (id,provider,query,data,created_at,expires_at) VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT(id) DO UPDATE SET data=excluded.data, created_at=excluded.created_at,expires_at=excluded.expires_at",
+    `INSERT INTO cache (id,provider,query,data,created_at,expires_at) VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT(${professionalAuth() ? "organization_id,id" : "id"}) DO UPDATE SET data=excluded.data, created_at=excluded.created_at,expires_at=excluded.expires_at`,
     [
       id,
       provider,

@@ -195,7 +195,7 @@ test("caderno: escrever, reler, buscar, editar, arquivar e recuperar páginas", 
     reader.getByRole("heading", { name: "Percepção e árvores" }),
   ).toBeVisible();
   const exported = await (await page.request.get("/api/export/json")).json();
-  expect(exported.version).toBe(2);
+  expect(exported.version).toBe(4);
   expect(
     exported.data.notes.some(
       (note: { title: string; content: string }) =>

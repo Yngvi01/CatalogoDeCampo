@@ -16,6 +16,9 @@ import {
   identificationPhoto,
   photoHash,
 } from "@/lib/http/identification-photo";
+import { FieldLinks } from "@/features/projects/field-links";
+import type { SamplingSite } from "@/lib/validation/field";
+import type { Project, Campaign } from "@/lib/validation/schemas";
 import type { Candidate } from "@/lib/validation/schemas";
 import { uploadDirect } from "@/lib/http/upload";
 import { PhotoGuide, photoOrgans } from "@/features/identification/photo-guide";
@@ -49,7 +52,10 @@ export function NewObservation({
   onSaved,
   draft,
   onDraftSaved,
+  projects = [], campaigns = [], samplingSites = [], projectId, campaignId,
 }: {
+  samplingSites?: SamplingSite[];
+  projects?: Project[]; campaigns?: Campaign[]; projectId?: string; campaignId?: string;
   onClose: () => void;
   onSaved: (id: string, message?: string) => void | Promise<void>;
   draft?: OfflineDraft | null;
@@ -89,6 +95,10 @@ export function NewObservation({
       : draft?.data.observedAt || new Date().toISOString();
     return {
       group, observedAt,
+      samplingSiteId: String(fields.get("samplingSiteId") || "") || null,
+      customValues: JSON.parse(String(fields.get("customValues") || "{}")),
+      projectId: String(fields.get("projectId") || "") || null,
+      campaignId: String(fields.get("campaignId") || "") || null,
       latitude: lat ? Number(lat) : null,
       longitude: lon ? Number(lon) : null,
       region: String(fields.get("region") || ""),
@@ -249,6 +259,7 @@ export function NewObservation({
                 ? "Dica de campo: fotografe a planta inteira, folhas, caule, flores, frutos e sementes."
                 : "Dica de campo: fotografe píleo, parte inferior, estipe, base, substrato e mudanças de cor."}
             </p>
+            <FieldLinks samplingSites={samplingSites} samplingSiteId={draft?.data.samplingSiteId} customValues={draft?.data.customValues} projects={projects} campaigns={campaigns} projectId={draft ? draft.data.projectId : projectId} campaignId={draft ? draft.data.campaignId : campaignId} />
             <div className="form-grid">
               <Field label="Local / região">
                 <input
