@@ -129,8 +129,8 @@ export function NewObservation({
   };
   return (
     <Modal
-      title="Nova observação"
-      subtitle="Identifique primeiro. Depois escolha quais fotos guardar."
+      title="Identificar e registrar"
+      subtitle="Adicione fotos, revise as sugestões e confirme sua observação."
       onClose={() => {
         if (!busy) onClose();
       }}

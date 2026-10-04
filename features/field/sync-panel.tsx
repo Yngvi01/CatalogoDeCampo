@@ -20,7 +20,7 @@ export function SyncPanel({ refresh }: { refresh: () => Promise<void> }) {
   const pending = records.filter(r => r.status !== "synced");
   useEffect(() => { if (records.some(r => r.status === "synced")) void refresh(); }, [records.filter(r => r.status === "synced").length, refresh]);
   return <section className="panel field-sync" aria-label="Fila de coleta rápida">
-    <div className="section-heading"><h2>Coleta rápida no aparelho</h2><a className="text-button" href="/collect.html">Abrir coleta rápida</a></div>
+    <div className="section-heading"><h2>Coletas neste aparelho</h2><a className="text-button" href="/collect.html">Abrir coleta de campo</a></div>
     <p>{pending.length ? `${pending.length} registro(s) aguardando envio. As fotos ficam aqui até a confirmação do servidor.` : "Nenhuma coleta pendente neste aparelho."}</p>
     <ErrorText message={error} />
     {records.map(r => <div key={r.id} className="field-queue-row"><strong>{r.code || r.data.region || "Nova observação"}</strong><span>{labels[r.status]}</span>{r.error && <small>{r.error}</small>}{r.status === "error" && <a href={`/collect.html?edit=${r.id}`}>Corrigir coleta</a>}</div>)}

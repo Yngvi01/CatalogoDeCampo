@@ -271,6 +271,31 @@ small {
 .nav-item:hover {
   background: #ffffff06;
 }
+.nav-register {
+  margin-top: 14px;
+  color: var(--accent);
+  border: 1px solid #c0d59435;
+  background: #c0d5940b;
+}
+.nav-register:hover { background: #c0d59418; }
+.flow-tabs { margin: -8px 0 24px; }
+.registration-options { display: grid; gap: 12px; }
+.registration-option {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  padding: 18px;
+  color: var(--text);
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+.registration-option > svg:first-child { flex: 0 0 auto; color: var(--accent); }
+.registration-option > span { display: grid; gap: 5px; flex: 1; }
+.registration-option strong { font-size: 14px; }
+.registration-option small { font-size: 12px; line-height: 1.5; color: var(--muted); }
+.registration-option:hover { border-color: var(--accent); background: #c0d5940b; }
 .nav-dot {
   width: 5px;
   height: 5px;
