@@ -296,6 +296,11 @@ small {
 .registration-option strong { font-size: 14px; }
 .registration-option small { font-size: 12px; line-height: 1.5; color: var(--muted); }
 .registration-option:hover { border-color: var(--accent); background: #c0d5940b; }
+.first-use { padding: clamp(22px, 4vw, 40px); margin-bottom: 18px; border-color: #46553b; }
+.first-use h2 { font: 30px/1.2 Georgia, serif; margin: 18px 0 8px; }
+.first-use > p { max-width: 650px; color: var(--muted); margin: 0; }
+.first-use-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 22px 0 14px; }
+.first-use > small { color: var(--muted); font-size: 11px; }
 .nav-dot {
   width: 5px;
   height: 5px;
@@ -2988,8 +2993,15 @@ details > summary {
 
 .field-sync, .sites-panel { padding: 20px; margin: 20px 0; }
 .field-sync .section-heading, .sites-panel .section-heading { margin-top: 0; flex-wrap: wrap; }
-.field-queue-row { display: flex; flex-wrap: wrap; gap: 12px; padding: 10px 0; border-top: 1px solid var(--border); }
+.field-sync-summary { color: var(--muted); font-size: 12px; }
+.field-sync-summary strong { color: #e6b4a8; }
+.field-queue-row { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; padding: 10px 0; border-top: 1px solid var(--border); }
+.field-queue-row > span { margin-left: auto; color: var(--muted); font-size: 11px; }
+.field-queue-error > span { color: #e6b4a8; }
+.field-queue-synced > span { color: var(--accent); }
 .field-queue-row small { flex-basis: 100%; }
+.field-synced-list { margin-top: 12px; border-top: 1px solid var(--border); }
+.field-synced-list summary { padding: 12px 0; cursor: pointer; color: var(--muted); font-size: 12px; }
 .field-definition { padding: 18px; margin: 18px 0; min-width: 0; }
 .field-choices { border: 1px solid var(--border); padding: 12px; margin: 0 0 18px; }
 .projects-panel .project-record { overflow-wrap: anywhere; }

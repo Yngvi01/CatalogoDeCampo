@@ -66,6 +66,7 @@ export function CampoApp() {
     [newOpen, setNewOpen] = useState(false),
     [registrationChoice, setRegistrationChoice] = useState(false),
     [recordsView, setRecordsView] = useState<"observations" | "species" | "map">("observations"),
+    [pendingQueueCount, setPendingQueueCount] = useState<number | null>(null),
     [fieldContext, setFieldContext] = useState<{ projectId: string; campaignId?: string } | null>(null),
     [offlineDrafts, setOfflineDrafts] = useState<OfflineDraft[]>([]),
     [resumeDraft, setResumeDraft] = useState<OfflineDraft | null>(null),
@@ -196,6 +197,10 @@ export function CampoApp() {
     !!property ||
     !!evidenceType ||
     !!radius;
+  const showFirstUse = Boolean(
+    data && pendingQueueCount === 0 && data.observations.length === 0 &&
+    offlineDrafts.length === 0,
+  );
   return (
     <div className="app-shell">
       <aside className="sidebar">
@@ -354,7 +359,17 @@ export function CampoApp() {
             <>
                   {area === "identify" && !hasFilters && (
                 <>
-                  <section className="hero panel">
+                  {showFirstUse ? <section className="first-use panel" aria-labelledby="first-use-title">
+                    <span className="pill">PRIMEIROS PASSOS</span>
+                    <h2 id="first-use-title">{data.projects.length ? "Seu próximo passo é registrar um encontro." : "Comece com um encontro."}</h2>
+                    <p>Você pode registrar sem criar um projeto. Se estiver em campo sem internet, a coleta fica neste aparelho até poder ser enviada.</p>
+                    <div className="first-use-actions">
+                      <Button onClick={() => openRegistration()}><ScanLine size={17} /> Registrar primeiro encontro <ArrowRight size={16} /></Button>
+                      <Button variant="outline" onClick={() => setArea("projects")}><FolderOpen size={16} /> {data.projects.length ? "Abrir projetos" : "Criar um projeto"}</Button>
+                      <Button variant="ghost" onClick={() => setArea("library")}><BookOpen size={16} /> Explorar a biblioteca</Button>
+                    </div>
+                    <small>{data.projects.length ? "Para vincular o registro, abra o projeto e comece a coleta por lá." : "Projetos são opcionais. Você pode vincular um registro a eles depois."}</small>
+                  </section> : <section className="hero panel">
                     <div className="hero-copy">
                       <span className="pill">
                         <span className="pulse-dot" /> REGISTRE NO SEU RITMO
@@ -387,7 +402,7 @@ export function CampoApp() {
                       </div>
                     </div>
                     <Botanical />
-                  </section>
+                  </section>}
                   <section className="offline-drafts panel" aria-label="Rascunhos no aparelho">
                     <div className="offline-drafts-heading"><HardDriveDownload size={20} /><div><h2>Rascunhos para identificar {offlineDrafts.length > 0 && <span>{offlineDrafts.length}</span>}</h2><p>Registros guardados neste navegador aguardam identificação e envio. As fotos ficam aqui até você decidir quais guardar.</p></div></div>
                     {draftError && <p role="alert" className="error">{draftError}</p>}
@@ -399,7 +414,7 @@ export function CampoApp() {
                       }}>Excluir rascunho</Button></div>
                     </article>)}</div> : <p className="offline-drafts-empty">Nenhum rascunho pendente. Se perder a conexão no campo, abra o Campo para registrar fotos e notas sem enviar nada ao servidor.</p>}
                   </section>
-                  <SyncPanel refresh={refresh} />
+                  <SyncPanel refresh={refresh} onPendingCount={setPendingQueueCount} />
                   <div className="stats-grid">
                     {[
                       {
@@ -441,7 +456,7 @@ export function CampoApp() {
                   </div>
                 </>
               )}
-              {(area === "identify" || area === "catalog" || area === "field") && (
+              {((area === "identify" && (!showFirstUse || observations.length > 0 || hasFilters)) || area === "catalog" || area === "field") && (
                 <>
                   <div className="section-heading">
                     <div>
@@ -784,7 +799,7 @@ export function CampoApp() {
                 </>
               )}
               {area === "catalog" && recordsView === "species" && species.length === 0 && !hasFilters && <CatalogExampleCards onNew={() => openRegistration()} view={view as "grid" | "list"} />}
-              {area === "projects" && <SyncPanel refresh={refresh} />}
+              {area === "projects" && <SyncPanel refresh={refresh} onPendingCount={setPendingQueueCount} />}
               {area === "projects" && <ProjectsPanel data={data} query={query} refresh={refresh} onObservation={setObservationId} onNew={(projectId, campaignId) => openRegistration({ projectId, campaignId })} />}
               {area === "library" && <><LibraryPanel query={query} /><div className="explore-inspiration"><ReflectionCard /><NatureCard /></div></>}
               {area === "notebook" && (
