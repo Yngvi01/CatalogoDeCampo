@@ -185,8 +185,7 @@ export function CampoApp() {
       (s) =>
         (group === "all" || s.group === group) &&
         matchesSpecies(s) &&
-        ((!from && !to && status === "all" && !radius) ||
-          observations.some((o) => o.speciesId === s.id)),
+        observations.some((o) => o.speciesId === s.id),
     ) || [];
   const hasFilters =
     !!query ||

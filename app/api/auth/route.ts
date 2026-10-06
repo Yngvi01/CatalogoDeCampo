@@ -5,6 +5,7 @@ import { limitedJson } from "@/lib/validation/body";
 import { NextRequest, NextResponse } from "next/server";
 import { timingSafeEqual } from "node:crypto";
 import { token, sameOrigin } from "@/lib/auth";
+import { safeReturnPath } from "@/lib/auth-redirect";
 const attempts = new Map<string, { count: number; until: number }>();
 export async function GET() {
   return NextResponse.json({ professional: professionalAuth() }, { headers: { "Cache-Control": "no-store" } });
@@ -17,8 +18,29 @@ export async function POST(request: NextRequest) {
     );
   if (professionalAuth()) {
     try {
-      const input = z.object({ email: z.email().max(254), password: z.string().min(1).max(1000) }).parse(await limitedJson(request));
+      const input = z.object({
+        action: z.enum(["login", "signup"]).default("login"),
+        email: z.email().max(254),
+        password: z.string().min(1).max(1000),
+        next: z.unknown().optional(),
+      }).parse(await limitedJson(request));
       const auth = supabaseAuth(request);
+      if (input.action === "signup") {
+        if (input.password.length < 12)
+          return NextResponse.json({ error: "A senha precisa ter pelo menos 12 caracteres." }, { status: 400 });
+        const callback = new URL("/auth/callback", request.nextUrl.origin);
+        callback.searchParams.set("next", safeReturnPath(input.next));
+        const { data, error } = await auth.client.auth.signUp({
+          email: input.email,
+          password: input.password,
+          options: { emailRedirectTo: callback.toString() },
+        });
+        if (error)
+          return auth.apply(NextResponse.json({ error: "Não foi possível criar a conta. Confira os dados e tente novamente." }, { status: 400 }));
+        const response = NextResponse.json({ ok: true, confirmationRequired: !data.session });
+        response.cookies.delete("campo-organization");
+        return auth.apply(response);
+      }
       const { error } = await auth.client.auth.signInWithPassword(input);
       const response = auth.apply(NextResponse.json(error ? { error: "E-mail ou senha inválidos, ou conta ainda não confirmada." } : { ok: true }, { status: error ? 401 : 200 }));
       if (!error) response.cookies.delete("campo-organization");
