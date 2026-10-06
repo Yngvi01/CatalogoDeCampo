@@ -156,7 +156,10 @@ export function CampoApp() {
       );
       return (
         (group === "all" || o.group === group) &&
-        (status === "all" || o.status === status) &&
+        (status === "all" ||
+          (status === "pending"
+            ? ["unidentified", "candidates"].includes(o.status)
+            : o.status === status)) &&
         (!query || text.includes(normalize(query))) &&
         (!from || o.observedAt.slice(0, 10) >= from) &&
         (!to || o.observedAt.slice(0, 10) <= to) &&
@@ -200,6 +203,19 @@ export function CampoApp() {
     data && pendingQueueCount === 0 && data.observations.length === 0 &&
     offlineDrafts.length === 0,
   );
+  const openCatalog = (nextView: "observations" | "species", nextStatus = "all") => {
+    setArea("catalog");
+    setRecordsView(nextView);
+    setGroup("all");
+    setStatus(nextStatus);
+    setFrom("");
+    setTo("");
+    setProperty("");
+    setEvidenceType("");
+    setRadius("");
+    setQuery("");
+    setFilters(nextStatus !== "all");
+  };
   return (
     <div className="app-shell">
       <aside className="sidebar">
@@ -217,6 +233,8 @@ export function CampoApp() {
             <button
               key={n.id}
               className={`nav-item ${activeNavigationId === n.id ? "active" : ""}`}
+              title={n.label}
+              aria-current={activeNavigationId === n.id ? "page" : undefined}
               onClick={() => { setArea(n.id); if (n.id === "catalog") setRecordsView("observations"); }}
             >
               <n.icon size={19} />
@@ -385,7 +403,7 @@ export function CampoApp() {
                       </p>
                       <div className="actions">
                         <Button onClick={() => openRegistration()}>
-                          <ScanLine size={17} /> Escolher como registrar{" "}
+                          <ScanLine size={17} /> Registrar um encontro{" "}
                           <ArrowRight size={17} />
                         </Button>
                         <button
@@ -421,12 +439,16 @@ export function CampoApp() {
                         value: data.observations.length,
                         icon: ScanLine,
                         note: "Encontros registrados",
+                        action: () => openCatalog("observations"),
+                        actionLabel: "Ver observações",
                       },
                       {
                         label: "Espécies no catálogo",
                         value: data.species.length,
                         icon: Leaf,
                         note: "Diversidade conhecida",
+                        action: () => openCatalog("species"),
+                        actionLabel: "Ver espécies",
                       },
                       {
                         label: "Aguardando identificação",
@@ -435,22 +457,33 @@ export function CampoApp() {
                         ).length,
                         icon: BookOpen,
                         note: "Perguntas em aberto",
+                        action: () => openCatalog("observations", "pending"),
+                        actionLabel: "Revisar pendências",
                       },
                       {
                         label: "Descobertas científicas",
                         value: data.discoveries.length,
                         icon: FlaskConical,
                         note: "Novas conexões",
+                        action: () => setArea("research"),
+                        actionLabel: "Abrir pesquisa",
                       },
                     ].map((s) => (
-                      <div className="stat panel" key={s.label}>
+                      <button
+                        type="button"
+                        className="stat stat-action panel"
+                        key={s.label}
+                        onClick={s.action}
+                        aria-label={`${s.label}: ${s.value}. ${s.actionLabel}`}
+                      >
                         <div>
                           <span>{s.label}</span>
                           <s.icon size={18} />
                         </div>
                         <strong>{String(s.value).padStart(2, "0")}</strong>
                         <small>{s.note}</small>
-                      </div>
+                        <span className="stat-link">{s.actionLabel} <ArrowRight size={12} /></span>
+                      </button>
                     ))}
                   </div>
                 </>
@@ -537,6 +570,7 @@ export function CampoApp() {
                           onChange={(e) => setStatus(e.target.value)}
                         >
                           <option value="all">Todos os status</option>
+                          <option value="pending">Aguardando identificação</option>
                           {Object.entries(statuses).map(([v, l]) => (
                             <option key={v} value={v}>
                               {l}
