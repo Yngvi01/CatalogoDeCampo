@@ -407,6 +407,11 @@ small {
 .breadcrumb svg {
   color: #5c6957;
 }
+.breadcrumb strong {
+  color: var(--text);
+  font-weight: 600;
+  white-space: nowrap;
+}
 .search-box {
   display: flex;
   align-items: center;

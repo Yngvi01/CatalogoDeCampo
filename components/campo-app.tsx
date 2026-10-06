@@ -90,6 +90,12 @@ export function CampoApp() {
     setRegistrationChoice(true);
   };
   const activeNavigationId = area === "field" ? "catalog" : area;
+  const activeSectionLabel = area === "catalog"
+    ? recordsView === "species" ? "Espécies" : "Observações"
+    : area === "field" ? "Mapa"
+    : area === "library" ? "Biblioteca de plantas"
+    : area === "research" ? "Pesquisa científica"
+    : null;
   const refresh = useCallback(async () => {
     try {
       setData(await api<Catalog>("catalog"));
@@ -275,7 +281,11 @@ export function CampoApp() {
           <div className="breadcrumb">
             <span>Meu espaço</span>
             <ChevronRight size={13} />
-            {navigation.find((n) => n.id === activeNavigationId)?.label}
+            {activeSectionLabel ? <>
+              <span className="breadcrumb-area">{navigation.find((n) => n.id === activeNavigationId)?.label}</span>
+              <ChevronRight size={13} />
+              <strong>{activeSectionLabel}</strong>
+            </> : <strong>{navigation.find((n) => n.id === activeNavigationId)?.label}</strong>}
           </div>
           <div className="search-box">
             <Search size={17} />
@@ -352,7 +362,7 @@ export function CampoApp() {
                   "Examine estudos e evidências antes de incorporar uma descoberta ao catálogo."}
               </p>
             </div>
-            {area !== "identify" && area !== "projects" && <Button onClick={() => openRegistration()}>
+            {(area === "catalog" || area === "field") && <Button onClick={() => openRegistration()}>
               <Plus size={18} /> Registrar encontro
             </Button>}
           </div>
@@ -844,6 +854,7 @@ export function CampoApp() {
                   refresh={refresh}
                   query={query}
                   onSpecies={setSpeciesId}
+                  onRegister={() => openRegistration()}
                 />
               )}
               {area === "identify" && !hasFilters && (

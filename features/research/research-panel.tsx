@@ -34,11 +34,13 @@ export function ResearchPanel({
   refresh,
   query,
   onSpecies,
+  onRegister,
 }: {
   data: Catalog;
   refresh: () => Promise<void>;
   query: string;
   onSpecies: (id: string) => void;
+  onRegister: () => void;
 }) {
   const [tab, setTab] = useState("explore"),
     [species, setSpecies] = useState(""),
@@ -72,11 +74,13 @@ export function ResearchPanel({
         <span className="pill">CIÊNCIA COM CONTEXTO</span>
       </div>
       <div className="catalog-toolbar">
-        <div className="tabs">
-          <button className={tab === "explore" ? "active" : ""} onClick={() => setTab("explore")}><Search size={15} /> Explorar substâncias</button>
-          <button className={tab === "map" ? "active" : ""} onClick={() => setTab("map")}><FlaskConical size={15} /> Mapa de evidências</button>
-          <button className={tab === "bookmarks" ? "active" : ""} onClick={() => setTab("bookmarks")}><Bookmark size={15} /> Para revisar <span>{data.bookmarks.length}</span></button>
+        <div className="tabs" role="group" aria-label="Seções de pesquisa">
+          <button type="button" aria-pressed={tab === "explore"} className={tab === "explore" ? "active" : ""} onClick={() => setTab("explore")}><Search size={15} /> Explorar substâncias</button>
+          <button type="button" aria-pressed={tab === "map"} className={tab === "map" ? "active" : ""} onClick={() => setTab("map")}><FlaskConical size={15} /> Mapa de evidências</button>
+          <button type="button" aria-pressed={tab === "bookmarks"} className={tab === "bookmarks" ? "active" : ""} onClick={() => setTab("bookmarks")}><Bookmark size={15} /> Para revisar <span>{data.bookmarks.length}</span></button>
           <button
+            type="button"
+            aria-pressed={tab === "discoveries"}
             className={tab === "discoveries" ? "active" : ""}
             onClick={() => setTab("discoveries")}
           >
@@ -84,6 +88,8 @@ export function ResearchPanel({
             <span>{data.discoveries.length}</span>
           </button>
           <button
+            type="button"
+            aria-pressed={tab === "compounds"}
             className={tab === "compounds" ? "active" : ""}
             onClick={() => setTab("compounds")}
           >
@@ -225,8 +231,11 @@ export function ResearchPanel({
           ) : (
             <Empty
               icon={<BookOpen size={32} />}
-              title="Descobertas começam com perguntas."
-              text="Selecione uma espécie do catálogo e investigue sua composição, propriedades e toxicidade na literatura."
+              title={data.species.length ? "Descobertas começam com perguntas." : "Registre uma espécie para começar a pesquisa."}
+              text={data.species.length
+                ? "Escolha uma espécie e investigue sua composição, propriedades e toxicidade na literatura."
+                : "Depois de registrar e identificar uma observação, você poderá investigar a espécie e revisar estudos relacionados."}
+              action={!data.species.length && <Button variant="outline" onClick={onRegister}><Plus size={15} /> Registrar encontro</Button>}
             />
           )}
         </>
