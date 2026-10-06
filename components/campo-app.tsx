@@ -55,7 +55,7 @@ const navigation = [
   { id: "identify" as const, label: "Início", icon: LayoutGrid },
   { id: "projects" as const, label: "Projetos", icon: FolderOpen },
   { id: "catalog" as const, label: "Registros", icon: Library },
-  { id: "library" as const, label: "Explorar", icon: BookOpen },
+  { id: "research" as const, label: "Pesquisa", icon: FlaskConical },
   { id: "notebook" as const, label: "Caderno", icon: NotebookPen },
 ];
 export function CampoApp() {
@@ -89,7 +89,7 @@ export function CampoApp() {
     setFieldContext(context || null);
     setRegistrationChoice(true);
   };
-  const activeNavigationId = area === "field" ? "catalog" : area === "research" ? "library" : area;
+  const activeNavigationId = area === "field" ? "catalog" : area;
   const refresh = useCallback(async () => {
     try {
       setData(await api<Catalog>("catalog"));
@@ -348,9 +348,9 @@ export function CampoApp() {
             <button type="button" aria-pressed={false} onClick={() => { setRecordsView("species"); setArea("catalog"); }}>Espécies</button>
             <button type="button" aria-pressed={true} className="active">Mapa</button>
           </div>}
-          {(area === "library" || area === "research") && <div className="tabs flow-tabs" role="group" aria-label="Explorar">
+          {(area === "library" || area === "research") && <div className="tabs flow-tabs" role="group" aria-label="Exploração e pesquisa">
+            <button type="button" aria-pressed={area === "research"} className={area === "research" ? "active" : ""} onClick={() => setArea("research")}>Pesquisa científica</button>
             <button type="button" aria-pressed={area === "library"} className={area === "library" ? "active" : ""} onClick={() => setArea("library")}>Biblioteca de plantas</button>
-            <button type="button" aria-pressed={area === "research"} className={area === "research" ? "active" : ""} onClick={() => setArea("research")}>Pesquisa e evidências</button>
           </div>}
           {!data ? (
             <Loading />
