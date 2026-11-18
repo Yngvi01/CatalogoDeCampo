@@ -43,6 +43,7 @@ export function ResearchPanel({
   onRegister: () => void;
 }) {
   const [tab, setTab] = useState("explore"),
+    [catalogView, setCatalogView] = useState<"discoveries" | "compounds">("compounds"),
     [species, setSpecies] = useState(""),
     [compoundName, setCompoundName] = useState(""),
     [status, setStatus] = useState("all"),
@@ -68,43 +69,35 @@ export function ResearchPanel({
       <div className="research-intro panel">
         <FlaskConical size={32} />
         <div>
-          <h3>Uma pergunta pode abrir muitos caminhos.</h3>
-          <p>Explore relações planta–composto no LOTUS, confira substâncias no PubChem e revise os estudos na Europe PMC.</p>
+          <span className="eyebrow">LABORATÓRIO CIENTÍFICO</span>
+          <h3>Da pergunta à evidência revisada.</h3>
+          <p>Explore relações, separe o que já tem fonte e incorpore somente o que você conseguiu revisar.</p>
         </div>
-        <span className="pill">CIÊNCIA COM CONTEXTO</span>
+        <ol className="research-workflow" aria-label="Fluxo de trabalho">
+          <li><span>1</span> Buscar</li>
+          <li><span>2</span> Revisar</li>
+          <li><span>3</span> Incorporar</li>
+        </ol>
       </div>
       <div className="catalog-toolbar">
         <div className="tabs" role="group" aria-label="Seções de pesquisa">
           <button type="button" aria-pressed={tab === "explore"} className={tab === "explore" ? "active" : ""} onClick={() => setTab("explore")}><Search size={15} /> Explorar substâncias</button>
           <button type="button" aria-pressed={tab === "map"} className={tab === "map" ? "active" : ""} onClick={() => setTab("map")}><FlaskConical size={15} /> Mapa de evidências</button>
           <button type="button" aria-pressed={tab === "bookmarks"} className={tab === "bookmarks" ? "active" : ""} onClick={() => setTab("bookmarks")}><Bookmark size={15} /> Para revisar <span>{data.bookmarks.length}</span></button>
-          <button
-            type="button"
-            aria-pressed={tab === "discoveries"}
-            className={tab === "discoveries" ? "active" : ""}
-            onClick={() => setTab("discoveries")}
-          >
-            <BookOpen size={15} /> Descobertas{" "}
-            <span>{data.discoveries.length}</span>
-          </button>
-          <button
-            type="button"
-            aria-pressed={tab === "compounds"}
-            className={tab === "compounds" ? "active" : ""}
-            onClick={() => setTab("compounds")}
-          >
-            <FlaskConical size={15} /> Compostos{" "}
-            <span>{data.compounds.length}</span>
-          </button>
+          <button type="button" aria-pressed={tab === "catalog"} className={tab === "catalog" ? "active" : ""} onClick={() => setTab("catalog")}><BookOpen size={15} /> Meu acervo</button>
         </div>
-        {tab === "compounds" && (
-          <Button size="sm" onClick={() => setAdding(true)}>
-            <Plus size={15} /> Novo composto
-          </Button>
-        )}
       </div>
-      {tab === "explore" ? <LotusExplorer compounds={data.compounds} bookmarks={data.bookmarks} onReviewed={async () => { await refresh(); setNotice("Relação revisada incorporada ao catálogo."); }} onBookmarkSaved={async () => { await refresh(); setNotice("Relação guardada em Para revisar."); }} /> : tab === "map" ? <EvidenceMap data={data} query={query} onSpecies={onSpecies} /> : tab === "bookmarks" ? <LotusBookmarks bookmarks={data.bookmarks} refresh={refresh} onReviewed={() => setNotice("Relação revisada incorporada ao catálogo.")} /> : tab === "discoveries" ? (
+      {tab === "explore" ? <LotusExplorer compounds={data.compounds} bookmarks={data.bookmarks} onReviewed={async () => { await refresh(); setNotice("Relação revisada incorporada ao catálogo."); }} onBookmarkSaved={async () => { await refresh(); setNotice("Relação guardada em Para revisar."); }} /> : tab === "map" ? <EvidenceMap data={data} query={query} onSpecies={onSpecies} /> : tab === "bookmarks" ? <LotusBookmarks bookmarks={data.bookmarks} refresh={refresh} onReviewed={() => setNotice("Relação revisada incorporada ao catálogo.")} /> : (
         <>
+          <div className="research-acquisition panel">
+            <div className="tabs research-subtabs" role="group" aria-label="Categorias do acervo">
+              <button type="button" aria-pressed={catalogView === "compounds"} className={catalogView === "compounds" ? "active" : ""} onClick={() => setCatalogView("compounds")}><FlaskConical size={15} /> Compostos <span>{data.compounds.length}</span></button>
+              <button type="button" aria-pressed={catalogView === "discoveries"} className={catalogView === "discoveries" ? "active" : ""} onClick={() => setCatalogView("discoveries")}><BookOpen size={15} /> Descobertas <span>{data.discoveries.length}</span></button>
+            </div>
+            {catalogView === "compounds" && <Button size="sm" onClick={() => setAdding(true)}><Plus size={15} /> Novo composto</Button>}
+          </div>
+          {catalogView === "discoveries" ? (
+          <>
           <div className="research-controls">
             <select
               aria-label="Espécie para investigar"
@@ -238,7 +231,7 @@ export function ResearchPanel({
               action={!data.species.length && <Button variant="outline" onClick={onRegister}><Plus size={15} /> Registrar encontro</Button>}
             />
           )}
-        </>
+          </>
       ) : compounds.length ? (
         <div className="compound-grid">
           {compounds.map((c) => (
@@ -306,6 +299,8 @@ export function ResearchPanel({
             </Button>
           }
         />
+      )}
+        </>
       )}
       {adding && (
         <Modal

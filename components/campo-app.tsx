@@ -30,7 +30,6 @@ import {
 import { Button } from "./ui/button";
 import { Botanical } from "./botanical";
 import { NatureCard } from "@/features/nature/nature-card";
-import { ReflectionCard } from "@/features/reflections/reflection-card";
 import { Empty, Loading, Modal, api } from "./shared";
 import { WorkspacePanel } from "@/features/workspace/workspace-panel";
 import { SyncPanel } from "@/features/field/sync-panel";
@@ -391,9 +390,9 @@ export function CampoApp() {
             <button type="button" aria-pressed={false} onClick={() => { setRecordsView("species"); setArea("catalog"); }}>Espécies</button>
             <button type="button" aria-pressed={true} className="active">Mapa</button>
           </div>}
-          {(area === "library" || area === "research") && <div className="tabs flow-tabs" role="group" aria-label="Exploração e pesquisa">
-            <button type="button" aria-pressed={area === "research"} className={area === "research" ? "active" : ""} onClick={() => setArea("research")}>Pesquisa científica</button>
-            <button type="button" aria-pressed={area === "library"} className={area === "library" ? "active" : ""} onClick={() => setArea("library")}>Biblioteca de plantas</button>
+          {area === "library" && <div className="tabs flow-tabs" role="group" aria-label="Exploração e pesquisa">
+            <button type="button" aria-pressed={false} onClick={() => setArea("research")}>Laboratório</button>
+            <button type="button" aria-pressed={true} className="active">Biblioteca de plantas</button>
           </div>}
           {area === "home" ? (
             <HomePanel
@@ -782,7 +781,7 @@ export function CampoApp() {
                 </>
               )}
               {area === "catalog" && recordsView === "species" && species.length === 0 && !hasFilters && <CatalogExampleCards onNew={() => openRegistration()} view={view as "grid" | "list"} />}
-              {area === "library" && <><LibraryPanel query={query} /><div className="explore-inspiration"><ReflectionCard /><NatureCard /></div></>}
+              {area === "library" && <><LibraryPanel query={query} /><div className="explore-inspiration"><NatureCard /></div></>}
               {area === "notebook" && (
                 <NotebookPanel notes={data.notes} query={query} refresh={refresh} />
               )}

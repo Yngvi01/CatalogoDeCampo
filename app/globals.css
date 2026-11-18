@@ -1505,12 +1505,50 @@ details > summary {
 .research-intro {
   display: flex;
   align-items: center;
-  gap: 22px;
-  padding: 27px;
+  gap: 18px;
+  padding: 24px 27px;
   margin-bottom: 28px;
   color: #aac58f;
   background: linear-gradient(100deg, #253020, #1a231b);
 }
+.research-intro > div { min-width: 0; }
+.research-intro .eyebrow { display: block; margin-bottom: 5px; color: #91a77e; }
+.research-workflow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 0 auto;
+  padding: 0;
+  list-style: none;
+}
+.research-workflow li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #b7c4aa;
+  font-size: 10px;
+  white-space: nowrap;
+}
+.research-workflow li + li::before { content: "›"; margin-right: 2px; color: #627158; }
+.research-workflow span {
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #536747;
+  border-radius: 50%;
+  color: #bfd2aa;
+}
+.research-acquisition {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 18px;
+  padding: 10px 12px;
+  background: #1a211a;
+}
+.research-subtabs { min-width: 0; }
 .research-intro h3 {
   font:
     23px Georgia,
@@ -2458,7 +2496,19 @@ details > summary {
   .research-intro {
     padding: 21px 16px;
     align-items: flex-start;
+    flex-wrap: wrap;
     gap: 14px;
+  }
+  .research-workflow {
+    width: 100%;
+    margin: 3px 0 0;
+  }
+  .research-acquisition {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .research-acquisition > .button {
+    width: 100%;
   }
   .research-intro > svg {
     width: 25px;

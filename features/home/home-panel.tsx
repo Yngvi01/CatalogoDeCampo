@@ -5,6 +5,7 @@ import {
   Leaf,
   NotebookPen,
 } from "lucide-react";
+import { ReflectionCard } from "@/features/reflections/reflection-card";
 
 type HomePanelProps = {
   onNavigate: (area: "identify" | "catalog" | "research" | "notebook") => void;
@@ -68,6 +69,7 @@ export function HomePanel({ onNavigate }: HomePanelProps) {
           );
         })}
       </div>
+      <ReflectionCard />
     </section>
   );
 }
