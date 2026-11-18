@@ -19,21 +19,56 @@ export async function POST(request: NextRequest) {
   if (professionalAuth()) {
     try {
       const input = z.object({
-        action: z.enum(["login", "signup"]).default("login"),
-        email: z.email().max(254),
-        password: z.string().min(1).max(1000),
+        action: z.enum(["login", "signup", "resend", "recover", "updatePassword"]).default("login"),
+        email: z.email().max(254).optional(),
+        password: z.string().min(1).max(1000).optional(),
         next: z.unknown().optional(),
       }).parse(await limitedJson(request));
       const auth = supabaseAuth(request);
-      if (input.action === "signup") {
-        if (input.password.length < 12)
+      const emailCallback = (next: string) => {
+        const target = new URL("/auth/callback", request.nextUrl.origin);
+        target.searchParams.set("next", next);
+        return target.toString();
+      };
+      const email = input.email;
+      if (!email)
+        return NextResponse.json({ error: "Informe um e-mail válido." }, { status: 400 });
+      if (input.action === "recover") {
+        const { error } = await auth.client.auth.resetPasswordForEmail(email, {
+          redirectTo: emailCallback("/login?recovery=1"),
+        });
+        if (error)
+          return auth.apply(NextResponse.json({ error: "Não foi possível solicitar a recuperação. Tente novamente mais tarde." }, { status: 400 }));
+        return auth.apply(NextResponse.json({ ok: true }));
+      }
+      if (input.action === "resend") {
+        const { error } = await auth.client.auth.resend({
+          type: "signup",
+          email,
+          options: { emailRedirectTo: emailCallback(safeReturnPath(input.next)) },
+        });
+        if (error)
+          return auth.apply(NextResponse.json({ error: "Não foi possível reenviar a confirmação. Tente recuperar a senha se esta conta já existir." }, { status: 400 }));
+        return auth.apply(NextResponse.json({ ok: true }));
+      }
+      if (input.action === "updatePassword") {
+        if (!input.password || input.password.length < 12)
           return NextResponse.json({ error: "A senha precisa ter pelo menos 12 caracteres." }, { status: 400 });
-        const callback = new URL("/auth/callback", request.nextUrl.origin);
-        callback.searchParams.set("next", safeReturnPath(input.next));
+        const { error } = await auth.client.auth.updateUser({ password: input.password });
+        if (error)
+          return auth.apply(NextResponse.json({ error: "Não foi possível alterar a senha. Solicite outro link de recuperação." }, { status: 400 }));
+        return auth.apply(NextResponse.json({ ok: true }));
+      }
+      const password = input.password;
+      if (!password)
+        return NextResponse.json({ error: "Informe a senha." }, { status: 400 });
+      if (input.action === "signup") {
+        if (password.length < 12)
+          return NextResponse.json({ error: "A senha precisa ter pelo menos 12 caracteres." }, { status: 400 });
         const { data, error } = await auth.client.auth.signUp({
-          email: input.email,
-          password: input.password,
-          options: { emailRedirectTo: callback.toString() },
+          email,
+          password,
+          options: { emailRedirectTo: emailCallback(safeReturnPath(input.next)) },
         });
         if (error)
           return auth.apply(NextResponse.json({ error: "Não foi possível criar a conta. Confira os dados e tente novamente." }, { status: 400 }));
@@ -41,7 +76,7 @@ export async function POST(request: NextRequest) {
         response.cookies.delete("campo-organization");
         return auth.apply(response);
       }
-      const { error } = await auth.client.auth.signInWithPassword(input);
+      const { error } = await auth.client.auth.signInWithPassword({ email, password });
       const response = auth.apply(NextResponse.json(error ? { error: "E-mail ou senha inválidos, ou conta ainda não confirmada." } : { ok: true }, { status: error ? 401 : 200 }));
       if (!error) response.cookies.delete("campo-organization");
       return response;
