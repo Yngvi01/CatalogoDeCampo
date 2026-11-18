@@ -43,10 +43,17 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: "Informe um e-mail válido." }, { status: 400 });
       if (input.action === "recover") {
         const { error } = await auth.client.auth.resetPasswordForEmail(email, {
-          redirectTo: emailCallback("/login?recovery=1"),
+          redirectTo: new URL("/auth/recovery", request.nextUrl.origin).toString(),
         });
-        if (error)
-          return auth.apply(NextResponse.json({ error: "Não foi possível solicitar a recuperação. Tente novamente mais tarde." }, { status: 400 }));
+        if (error) {
+          const detail = error.message.toLowerCase();
+          const message = detail.includes("redirect") || detail.includes("url")
+            ? "O Supabase recusou o endereço de retorno. Adicione https://catalogo-de-campo.vercel.app/auth/recovery às Redirect URLs do projeto."
+            : /rate|too many|after .*second|after .*minute/.test(detail)
+              ? "Já houve uma solicitação recente. Aguarde um minuto antes de pedir outro link."
+              : "Não foi possível solicitar a recuperação. Tente novamente mais tarde.";
+          return auth.apply(NextResponse.json({ error: message }, { status: 400 }));
+        }
         return auth.apply(NextResponse.json({ ok: true }));
       }
       if (input.action === "resend") {

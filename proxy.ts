@@ -15,6 +15,7 @@ export async function proxy(request: NextRequest) {
   if (
     path === "/login" ||
     path === "/auth/callback" ||
+    path === "/auth/recovery" ||
     path === "/api/auth" ||
     path === "/manifest.webmanifest" ||
     path === "/icon.svg" ||
