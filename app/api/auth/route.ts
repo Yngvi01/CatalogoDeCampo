@@ -31,6 +31,14 @@ export async function POST(request: NextRequest) {
         return target.toString();
       };
       const email = input.email;
+      if (input.action === "updatePassword") {
+        if (!input.password || input.password.length < 12)
+          return NextResponse.json({ error: "A senha precisa ter pelo menos 12 caracteres." }, { status: 400 });
+        const { error } = await auth.client.auth.updateUser({ password: input.password });
+        if (error)
+          return auth.apply(NextResponse.json({ error: "Não foi possível alterar a senha. Solicite outro link de recuperação." }, { status: 400 }));
+        return auth.apply(NextResponse.json({ ok: true }));
+      }
       if (!email)
         return NextResponse.json({ error: "Informe um e-mail válido." }, { status: 400 });
       if (input.action === "recover") {
@@ -49,14 +57,6 @@ export async function POST(request: NextRequest) {
         });
         if (error)
           return auth.apply(NextResponse.json({ error: "Não foi possível reenviar a confirmação. Tente recuperar a senha se esta conta já existir." }, { status: 400 }));
-        return auth.apply(NextResponse.json({ ok: true }));
-      }
-      if (input.action === "updatePassword") {
-        if (!input.password || input.password.length < 12)
-          return NextResponse.json({ error: "A senha precisa ter pelo menos 12 caracteres." }, { status: 400 });
-        const { error } = await auth.client.auth.updateUser({ password: input.password });
-        if (error)
-          return auth.apply(NextResponse.json({ error: "Não foi possível alterar a senha. Solicite outro link de recuperação." }, { status: 400 }));
         return auth.apply(NextResponse.json({ ok: true }));
       }
       const password = input.password;
