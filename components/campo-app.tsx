@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import dynamic from "next/dynamic";
 import {
-  FolderOpen,
+  ArrowLeft,
   Sprout,
   Camera,
   ScanLine,
@@ -34,7 +34,6 @@ import { ReflectionCard } from "@/features/reflections/reflection-card";
 import { Empty, Loading, Modal, api } from "./shared";
 import { WorkspacePanel } from "@/features/workspace/workspace-panel";
 import { SyncPanel } from "@/features/field/sync-panel";
-import { ProjectsPanel } from "@/features/projects/projects-panel";
 import { NewObservation } from "@/features/observations/new-observation";
 import { deleteDraft, listDrafts, type OfflineDraft } from "@/lib/offline/drafts";
 import { ObservationDetail } from "@/features/observations/observation-detail";
@@ -51,14 +50,12 @@ const FieldMap = dynamic(() => import("@/features/map/field-map"), {
   ssr: false,
   loading: () => <Loading />,
 });
-type Area = "home" | "projects" | "identify" | "field" | "catalog" | "research" | "notebook" | "library";
+type Area = "home" | "identify" | "field" | "catalog" | "research" | "notebook" | "library";
 const navigation = [
-  { id: "home" as const, label: "Início", icon: LayoutGrid },
-  { id: "identify" as const, label: "Identificação", icon: ScanLine },
-  { id: "projects" as const, label: "Projetos", icon: FolderOpen },
-  { id: "catalog" as const, label: "Catálogo", icon: Library },
-  { id: "research" as const, label: "Laboratório", icon: FlaskConical },
-  { id: "notebook" as const, label: "Caderno", icon: NotebookPen },
+  { id: "identify" as const, label: "Identificação", mobileLabel: "Identificar", icon: ScanLine },
+  { id: "catalog" as const, label: "Catálogo", mobileLabel: "Catálogo", icon: Library },
+  { id: "research" as const, label: "Laboratório", mobileLabel: "Pesquisa", icon: FlaskConical },
+  { id: "notebook" as const, label: "Caderno", mobileLabel: "Caderno", icon: NotebookPen },
 ];
 export function CampoApp() {
   const [area, setArea] = useState<Area>("home"),
@@ -219,8 +216,22 @@ export function CampoApp() {
     setQuery("");
     setFilters(nextStatus !== "all");
   };
+  const openIdentification = () => {
+    setArea("identify");
+    setRecordsView("observations");
+    setQuery("");
+    setGroup("all");
+    setStatus("all");
+    setFrom("");
+    setTo("");
+    setProperty("");
+    setEvidenceType("");
+    setRadius("");
+    setCenter(null);
+    setFilters(false);
+  };
   return (
-    <div className="app-shell">
+    <div className={`app-shell ${area === "home" ? "app-shell-home" : ""}`}>
       <aside className="sidebar">
         <a href="/" className="brand">
           <div className="brand-mark">
@@ -237,11 +248,17 @@ export function CampoApp() {
               key={n.id}
               className={`nav-item ${activeNavigationId === n.id ? "active" : ""}`}
               title={n.label}
+              aria-label={n.label}
               aria-current={activeNavigationId === n.id ? "page" : undefined}
-              onClick={() => { if (n.id === "catalog") openCatalog("species"); else setArea(n.id); }}
+              onClick={() => {
+                if (n.id === "catalog") openCatalog("species");
+                else if (n.id === "identify") openIdentification();
+                else setArea(n.id);
+              }}
             >
               <n.icon size={19} />
-              <span>{n.label}</span>
+              <span className="nav-label-desktop">{n.label}</span>
+              <span className="nav-label-mobile" aria-hidden="true">{n.mobileLabel}</span>
               {activeNavigationId === n.id && <span className="nav-dot" />}
             </button>
           ))}
@@ -320,12 +337,12 @@ export function CampoApp() {
           </button>
         </header>
         <main className="main-content">
-          {error && (
+          {area !== "home" && error && (
             <div role="alert" className="error">
               {error} <button onClick={refresh}>Tentar novamente</button>
             </div>
           )}
-          {notice && (
+          {area !== "home" && notice && (
             <div role="status" className="notice">
               {notice}
               <button aria-label="Fechar aviso" onClick={() => setNotice("")}>
@@ -333,19 +350,18 @@ export function CampoApp() {
               </button>
             </div>
           )}
-          <div className="page-heading">
+          {area !== "home" && <div className="page-heading">
             <div>
+              <button className="back-home-button" type="button" onClick={() => setArea("home")}>
+                <ArrowLeft size={16} /> Voltar ao início
+              </button>
               <span className="eyebrow">
-                {area === "home" ? "OBSERVE · REGISTRE · DESCUBRA" :
-                  area === "projects" ? "ORGANIZE SEU TRABALHO DE CAMPO" :
-                  area === "identify" ? "IDENTIFICAÇÃO DE ORGANISMOS" :
+                {area === "identify" ? "IDENTIFICAÇÃO DE ORGANISMOS" :
                   area === "field" || area === "catalog" ? "OBSERVAÇÕES, ESPÉCIES E LUGARES" :
                   area === "notebook" ? "ANOTAÇÕES PESSOAIS" : "FLORA, SUBSTÂNCIAS E FONTES"}
               </span>
               <h1>
-                {area === "home" ? "Explore seu campo" :
-                  area === "projects" ? "Projetos de campo" :
-                  area === "identify" ? "Identifique um organismo" :
+                {area === "identify" ? "Identifique um organismo" :
                   area === "field" ? "Mapa de observações" :
                   area === "catalog" ? recordsView === "species" ? "Catálogo de espécies" : "Registros de campo" :
                   area === "notebook" ? "Caderno de campo" :
@@ -353,9 +369,7 @@ export function CampoApp() {
                   area === "library" ? "Explore e descubra" : "Pesquisa científica"}
               </h1>
               <p>
-                {area === "home" ? "Acesse suas ferramentas de observação, catalogação e pesquisa." :
-                  area === "projects" ? "Organize campanhas, locais e observações do seu trabalho de campo." :
-                  area === "identify" ? "Comece pela câmera ou continue uma coleta guardada neste aparelho." :
+                {area === "identify" ? "Comece pela câmera ou continue uma coleta guardada neste aparelho." :
                   area === "field" ? "Veja onde e quando seus encontros foram registrados." :
                   area === "catalog" ? "Explore plantas, fungos, observações e fichas reunidas no seu espaço." :
                   area === "notebook" ? "Guarde leituras, ideias e anotações para voltar quando quiser." :
@@ -366,7 +380,7 @@ export function CampoApp() {
             {(area === "catalog" || area === "field") && <Button onClick={() => openRegistration()}>
               <Plus size={18} /> Registrar encontro
             </Button>}
-          </div>
+          </div>}
           {area === "catalog" && <div className="tabs flow-tabs" role="group" aria-label="Tipo de registro">
             <button type="button" aria-pressed={recordsView === "observations"} className={recordsView === "observations" ? "active" : ""} onClick={() => setRecordsView("observations")}>Observações</button>
             <button type="button" aria-pressed={recordsView === "species"} className={recordsView === "species" ? "active" : ""} onClick={() => setRecordsView("species")}>Espécies</button>
@@ -381,22 +395,18 @@ export function CampoApp() {
             <button type="button" aria-pressed={area === "research"} className={area === "research" ? "active" : ""} onClick={() => setArea("research")}>Pesquisa científica</button>
             <button type="button" aria-pressed={area === "library"} className={area === "library" ? "active" : ""} onClick={() => setArea("library")}>Biblioteca de plantas</button>
           </div>}
-          {!data ? (
+          {area === "home" ? (
+            <HomePanel
+              onNavigate={(nextArea) => {
+                if (nextArea === "catalog") openCatalog("species");
+                else if (nextArea === "identify") openIdentification();
+                else setArea(nextArea);
+              }}
+            />
+          ) : !data ? (
             <Loading />
           ) : (
             <>
-                  {area === "home" && <HomePanel
-                    counts={{
-                      observations: data.observations.length,
-                      species: data.species.length,
-                      notes: data.notes.length,
-                      discoveries: data.discoveries.length,
-                    }}
-                    onNavigate={(nextArea) => {
-                      if (nextArea === "catalog") openCatalog("species");
-                      else setArea(nextArea);
-                    }}
-                  />}
                   {area === "identify" && !hasFilters && (
                     <>
                   <section className="identify-hero panel">
@@ -772,8 +782,6 @@ export function CampoApp() {
                 </>
               )}
               {area === "catalog" && recordsView === "species" && species.length === 0 && !hasFilters && <CatalogExampleCards onNew={() => openRegistration()} view={view as "grid" | "list"} />}
-              {area === "projects" && <SyncPanel refresh={refresh} />}
-              {area === "projects" && <ProjectsPanel data={data} query={query} refresh={refresh} onObservation={setObservationId} onNew={(projectId, campaignId) => openRegistration({ projectId, campaignId })} />}
               {area === "library" && <><LibraryPanel query={query} /><div className="explore-inspiration"><ReflectionCard /><NatureCard /></div></>}
               {area === "notebook" && (
                 <NotebookPanel notes={data.notes} query={query} refresh={refresh} />

@@ -8,6 +8,7 @@ test("navegação pelas áreas principais e adaptação móvel", async ({ page }
   await page.getByRole("button", { name: "Entrar no catálogo" }).click();
 
   const home = page.getByRole("region", { name: "Áreas do Campo Catálogo" });
+  await expect(home.getByRole("button")).toHaveCount(4);
   await expect(home.getByRole("button", { name: "Abrir Identificação" })).toBeVisible();
   await expect(home.getByRole("button", { name: "Abrir Catálogo" })).toBeVisible();
   await expect(home.getByRole("button", { name: "Abrir Laboratório" })).toBeVisible();
@@ -15,28 +16,37 @@ test("navegação pelas áreas principais e adaptação móvel", async ({ page }
 
   await home.getByRole("button", { name: "Abrir Identificação" }).click();
   await expect(page.getByRole("heading", { name: "Identifique um organismo" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Voltar ao início" })).toBeVisible();
   await page.getByRole("button", { name: "Nova identificação" }).click();
   const identification = page.getByRole("dialog", { name: "Identificar e registrar" });
   await expect(identification).toBeVisible();
   await identification.getByRole("button", { name: "Fechar" }).click();
+  await page.getByRole("button", { name: "Voltar ao início" }).click();
+  await expect(home).toBeVisible();
 
-  await page.getByRole("button", { name: "Catálogo", exact: true }).click();
+  await home.getByRole("button", { name: "Abrir Catálogo" }).click();
   await expect(page.getByRole("heading", { name: "Catálogo de espécies" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Voltar ao início" })).toBeVisible();
   await page.getByRole("button", { name: "Fungos" }).click();
   await expect(page.getByText("Nenhuma espécie encontrada")).toBeVisible();
+  await page.getByRole("button", { name: "Voltar ao início" }).click();
 
-  await page.getByRole("button", { name: "Laboratório", exact: true }).click();
+  await home.getByRole("button", { name: "Abrir Laboratório" }).click();
   await expect(page.getByRole("heading", { name: "Laboratório" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Voltar ao início" })).toBeVisible();
   await page.getByRole("button", { name: "Biblioteca de plantas" }).click();
   await expect(page.getByRole("region", { name: "Biblioteca de plantas do Rio Grande do Sul" })).toBeVisible();
+  await page.getByRole("button", { name: "Voltar ao início" }).click();
 
-  await page.getByRole("button", { name: "Caderno", exact: true }).click();
+  await home.getByRole("button", { name: "Abrir Caderno de campo" }).click();
   await expect(page.getByRole("heading", { name: "Caderno de campo" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Voltar ao início" })).toBeVisible();
 
   await page.setViewportSize({ width: 390, height: 844 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-  await expect(page.getByRole("button", { name: "Início" })).toBeVisible();
-  await page.getByRole("button", { name: "Início" }).click();
+  await expect(page.getByRole("button", { name: "Projetos", exact: true })).toHaveCount(0);
+  await page.getByRole("button", { name: "Voltar ao início" }).click();
   await expect(home).toBeVisible();
+  await expect(home.getByRole("button")).toHaveCount(4);
   expect(errors).toEqual([]);
 });

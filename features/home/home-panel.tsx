@@ -1,6 +1,5 @@
 import {
   ArrowRight,
-  BookOpen,
   Camera,
   FlaskConical,
   Leaf,
@@ -8,12 +7,6 @@ import {
 } from "lucide-react";
 
 type HomePanelProps = {
-  counts: {
-    observations: number;
-    species: number;
-    notes: number;
-    discoveries: number;
-  };
   onNavigate: (area: "identify" | "catalog" | "research" | "notebook") => void;
 };
 
@@ -52,18 +45,9 @@ const destinations = [
   },
 ] as const;
 
-export function HomePanel({ counts, onNavigate }: HomePanelProps) {
+export function HomePanel({ onNavigate }: HomePanelProps) {
   return (
     <section className="home-panel" aria-label="Áreas do Campo Catálogo">
-      <div className="home-welcome panel">
-        <div>
-          <span className="eyebrow">OBSERVE · REGISTRE · DESCUBRA</span>
-          <h2>Um espaço para conhecer o que vive ao seu redor.</h2>
-          <p>Escolha por onde continuar sua exploração de campo.</p>
-        </div>
-        <div className="home-welcome-mark" aria-hidden="true"><Leaf size={30} /></div>
-      </div>
-
       <div className="home-destinations">
         {destinations.map((destination) => {
           const Icon = destination.icon;
@@ -83,14 +67,6 @@ export function HomePanel({ counts, onNavigate }: HomePanelProps) {
             </button>
           );
         })}
-      </div>
-
-      <div className="home-summary panel" aria-label="Resumo do seu espaço">
-        <div><span>Encontros registrados</span><strong>{counts.observations}</strong></div>
-        <div><span>Espécies catalogadas</span><strong>{counts.species}</strong></div>
-        <div><span>Páginas no caderno</span><strong>{counts.notes}</strong></div>
-        <div><span>Descobertas científicas</span><strong>{counts.discoveries}</strong></div>
-        <BookOpen className="home-summary-mark" size={19} aria-hidden="true" />
       </div>
     </section>
   );
